@@ -1,0 +1,936 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LAB TITLE</title>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<!-- SCENE of the 3d-scenes skill. You write CONTENIDO, the <title> and this aria-label, which says what is shown; the rest is not touched. -->
+<div class="escena3d" id="escena" data-modo="laboratorio" aria-label="WHAT IS SHOWN, IN ONE SENTENCE"></div>
+<script>
+  // If the module fails to start (no connection to the CDN, syntax error), say so instead of staying blank.
+  setTimeout(() => { if (!document.body.dataset.listo && !document.getElementById("diag")) document.querySelector(".escena3d").insertAdjacentHTML("beforeend", '<p class="fallo3d sin-arrancar" style="padding:1rem">The 3D scene did not start. Check your connection or open the browser console.</p>'); }, 6000);
+</script>
+<script type="module">
+// ── NÚCLEO: camera, lights, orbit, labels, views, theme and the note's commands. Do not touch. ──
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+
+const NUCLEO_CSS = `
+:root { color-scheme: light dark;
+  --bg: #fbfbfa; --fg: #202326; --muted: #696f75; --accent: #0b6bcb;
+  --red: #b3261e; --blue: #0b6bcb; --green: #2c6e3a; --orange: #a65a12; --magenta: #a2367f; --cyan: #0f7a80;
+  --sans: system-ui, "Noto Sans", sans-serif; --mono: ui-monospace, "Noto Sans Mono", monospace; }
+@media (prefers-color-scheme: dark) { :root:not([data-tema="claro"]) {
+  --bg: #16181b; --fg: #e3e5e7; --muted: #9aa1a8; --accent: #6cb0ff;
+  --red: #ff8a80; --blue: #6cb0ff; --green: #8bd49a; --orange: #f0a35e; --magenta: #e39bd0; --cyan: #6fd0d6; } }
+:root[data-tema="oscuro"] {
+  --bg: #16181b; --fg: #e3e5e7; --muted: #9aa1a8; --accent: #6cb0ff;
+  --red: #ff8a80; --blue: #6cb0ff; --green: #8bd49a; --orange: #f0a35e; --magenta: #e39bd0; --cyan: #6fd0d6; }
+:root { --mesa: color-mix(in srgb, var(--fg) 6.5%, var(--bg)); --hueco: color-mix(in srgb, var(--fg) 2%, var(--bg));
+  --linea: color-mix(in srgb, var(--fg) 18%, transparent); }
+html, body { height: 100%; margin: 0; }
+body { background: var(--mesa); color: var(--fg); font-family: var(--sans); line-height: 1.5; }
+.escena3d { position: relative; display: flex; flex-direction: column; height: 100%; }
+.escena3d .lienzo3d { position: relative; flex: 1; min-height: 12rem; }
+.escena3d .lienzo3d canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; cursor: grab; }
+.escena3d .lienzo3d canvas:active { cursor: grabbing; }
+.escena3d .rotulos3d { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.etiqueta3d { font-size: .78rem; font-weight: 600; color: var(--c, var(--fg)); background: color-mix(in srgb, var(--bg) 82%, transparent); padding: .05rem .45rem; border-radius: 6px; white-space: nowrap; }
+.escena3d .mandos3d { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; padding: .4rem .6rem .6rem; }
+.escena3d .mandos3d:empty { display: none; }
+.escena3d .fallo3d { color: var(--red); font-size: .9rem; padding: 1rem .6rem; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 2px; background: var(--hueco); border-radius: 10px; }
+.seg button { font: inherit; font-size: .85rem; padding: .15rem .7rem; border: 0; border-radius: 8px; background: none; color: var(--muted); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--bg); font-weight: 600; }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.escena3d .pantalla3d { position: absolute; top: .45rem; right: .45rem; z-index: 20; width: 2rem; height: 2rem; display: grid; place-items: center; padding: 0; border: 1px solid var(--linea); border-radius: 8px; background: var(--bg); color: var(--fg); cursor: pointer; }
+.escena3d .pantalla3d[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.escena3d:fullscreen { background: var(--bg); }
+`;
+
+const poco = matchMedia("(prefers-reduced-motion: reduce)");
+const url = new URLSearchParams(location.search);
+const tFijo = url.has("t") ? parseFloat(url.get("t")) : null;
+// The note that embeds the scene sends it commands and colors (embed.js); only the parent frame is handled.
+const incrustada = window.parent !== window;
+
+if (url.get("tema") === "claro" || url.get("tema") === "oscuro") document.documentElement.dataset.tema = url.get("tema");
+const estilo = document.createElement("style");
+estilo.textContent = NUCLEO_CSS;
+document.head.prepend(estilo);
+
+// #diag and body[data-listo] signal the first frame or the failure.
+function diag(texto, listo) {
+  let d = document.getElementById("diag");
+  if (!d) { d = document.createElement("div"); d.id = "diag"; d.hidden = true; document.body.append(d); }
+  if (listo && d.textContent.startsWith("OK")) return;
+  d.textContent = texto;
+  if (listo) {
+    document.body.dataset.listo = "1";
+    // In the capture, the page clock runs ahead of the Three.js download, so the notice may appear too early.
+    document.querySelectorAll(".sin-arrancar").forEach((m) => m.remove());
+  }
+}
+
+function hex(css, dentro) {
+  const p = document.createElement("span");
+  p.style.color = css;
+  dentro.append(p);
+  const c = getComputedStyle(p).color;
+  p.remove();
+  const ctx = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+  ctx.fillStyle = c;
+  ctx.fillRect(0, 0, 1, 1);
+  const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+  return "#" + [r, g, b].map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+const NOMBRES = ["bg", "fg", "muted", "mesa", "accent", "blue", "red", "green", "orange", "magenta", "cyan"];
+function leerColores(el) {
+  const c = {};
+  for (const n of NOMBRES) c[n] = hex(`var(--${n})`, el);
+  c.oscuro = new THREE.Color(c.bg).getHSL({}).l < 0.5;
+  return c;
+}
+
+async function arrancar(fn, cont = document.querySelector(".escena3d")) {
+  const id = cont.id || "escena";
+  const lienzo = document.createElement("div");
+  lienzo.className = "lienzo3d";
+  const rotulosEl = document.createElement("div");
+  rotulosEl.className = "rotulos3d";
+  lienzo.append(rotulosEl);
+  const mandos = document.createElement("div");
+  mandos.className = "mandos3d";
+  cont.append(lienzo, mandos);
+
+  const escena = new THREE.Scene();
+  const camara = new THREE.PerspectiveCamera(40, 1.6, 0.1, 200);
+  const render = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  render.setPixelRatio(Math.min(devicePixelRatio, 2));
+  render.setClearColor(0x000000, 0);
+  render.shadowMap.enabled = true;
+  render.shadowMap.type = THREE.PCFShadowMap;
+  render.domElement.setAttribute("role", "img");
+  render.domElement.setAttribute("aria-label", cont.getAttribute("aria-label") || document.title);
+  lienzo.prepend(render.domElement);
+  const rotulos = new CSS2DRenderer({ element: rotulosEl });
+  const orbita = new OrbitControls(camara, render.domElement);
+  // Embedded in a note, the wheel scrolls the note: zooming with it would trap the scroll.
+  orbita.enableZoom = !incrustada;
+  orbita.enableDamping = !poco.matches;
+  orbita.dampingFactor = 0.08;
+
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x888888, 1.1);
+  const sol = new THREE.DirectionalLight(0xffffff, 1.8);
+  sol.position.set(4, 9, 6);
+  sol.castShadow = true;
+  sol.shadow.mapSize.set(1024, 1024);
+  Object.assign(sol.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, far: 40 });
+  escena.add(hemi, sol);
+
+  let pedido = true;
+  const pedir = () => { pedido = true; };
+  orbita.addEventListener("change", pedir);
+
+  // Lab (data-modo="laboratorio"): ⛶ fullscreen button and the format the module reads.
+  const laboratorio = cont.dataset.modo === "laboratorio";
+  const formatos = [];
+  let formato = "compacto", boton = null;
+  const medirFormato = () => {
+    const nuevo = document.fullscreenElement === cont || (!incrustada && innerWidth >= 1100) ? "completo" : "compacto";
+    boton?.setAttribute("aria-pressed", String(document.fullscreenElement === cont));
+    if (nuevo === formato) return;
+    formato = nuevo;
+    formatos.forEach((f) => f(formato));
+    pedir();
+  };
+  if (laboratorio) {
+    if (url.get("formato") === "completo" || url.get("formato") === "compacto") formato = url.get("formato");
+    else medirFormato();
+    boton = document.createElement("button");
+    boton.type = "button";
+    boton.className = "pantalla3d";
+    boton.title = "Fullscreen";
+    boton.setAttribute("aria-label", "Fullscreen");
+    boton.setAttribute("aria-pressed", "false");
+    boton.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
+    cont.append(boton);
+    // Embedded, the iframe needs allowfullscreen: without it the browser refuses, and here we say why.
+    boton.addEventListener("click", () => (document.fullscreenElement === cont ? document.exitFullscreen()
+      : cont.requestFullscreen().catch((e) => console.error(`escena3d: fullscreen not available (${e.message})${incrustada ? ": the iframe is missing allowfullscreen" : ""}`))));
+    document.addEventListener("fullscreenchange", medirFormato);
+    if (!url.has("formato")) addEventListener("resize", medirFormato);
+  }
+
+  let colores = leerColores(cont);
+  const temaFns = [];
+  const k = {
+    THREE, escena, camara, render, orbita, sol, hemi, contenedor: cont, mandos, pedir,
+    get colores() { return colores; },
+    get formato() { return formato; },
+    alCambiarFormato(f) { formatos.push(f); f(formato); },
+    alCambiarTema(f) { temaFns.push(f); f(colores); },
+    etiqueta(obj, texto, { color = "fg", alto = 0 } = {}) {
+      const d = document.createElement("div");
+      d.className = "etiqueta3d";
+      d.textContent = texto;
+      d.style.setProperty("--c", `var(--${color})`);
+      const o = new CSS2DObject(d);
+      o.position.y = alto;
+      obj.add(o);
+      return o;
+    },
+    // Shadow on the table without drawing a floor: only the shadow is visible.
+    sombraSuelo(y = 0, lado = 20) {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(lado, lado), new THREE.ShadowMaterial({ opacity: 0.18 }));
+      m.rotation.x = -Math.PI / 2;
+      m.position.y = y;
+      m.receiveShadow = true;
+      escena.add(m);
+      return m;
+    },
+    vistas: {},
+    mirarDesde(clave) {
+      const v = k.vistas[clave];
+      if (!v) return;
+      const mira = new THREE.Vector3(...(v.mira || [0, 0, 0]));
+      // Vertical fov: in a gap narrower than the base aspect, width would be lost; the camera pulls back.
+      const f = Math.min(2, Math.max(1, (v.aspecto || 1.6) / camara.aspect));
+      camara.position.set(...v.pos).sub(mira).multiplyScalar(f).add(mira);
+      orbita.target.copy(mira);
+      orbita.update();
+      vistaActual = clave;
+      mandos.querySelectorAll("[data-vista]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.vista === clave));
+      pedir();
+    },
+  };
+  let vistaActual = null;
+
+  const api = (await fn(k)) || {};
+  const claves = Object.keys(k.vistas);
+  if (claves.length > 1) {
+    const seg = document.createElement("div");
+    seg.className = "seg";
+    seg.setAttribute("role", "group");
+    seg.setAttribute("aria-label", "View");
+    for (const c of claves) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.dataset.vista = c;
+      b.textContent = k.vistas[c].nombre || c;
+      b.addEventListener("click", () => k.mirarDesde(c));
+      seg.append(b);
+    }
+    mandos.prepend(seg);
+  }
+
+  const ajustar = () => {
+    const w = lienzo.clientWidth, h = lienzo.clientHeight;
+    if (!w || !h) return;
+    render.setSize(w, h, false);
+    rotulos.setSize(w, h);
+    camara.aspect = w / h;
+    camara.updateProjectionMatrix();
+    if (vistaActual) k.mirarDesde(vistaActual);
+    pedir();
+  };
+  new ResizeObserver(ajustar).observe(lienzo);
+  ajustar();
+  if (claves.length) k.mirarDesde(k.vistas[url.get("vista")] ? url.get("vista") : claves[0]);
+
+  const retemar = () => { colores = leerColores(cont); temaFns.forEach((f) => f(colores)); pedir(); };
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retemar);
+
+  const ordenar = (d) => { if (d.vista) k.mirarDesde(d.vista); api.orden?.(d); pedir(); };
+  // Messages from the note (embed.js): {tipo:"tema", tema, colores} and {tipo:"orden", orden}.
+  addEventListener("message", (e) => {
+    if (!incrustada || e.source !== window.parent || !e.data) return;
+    const m = e.data;
+    if (m.tipo === "tema") {
+      const raiz = document.documentElement;
+      if (m.tema === "claro" || m.tema === "oscuro") raiz.dataset.tema = m.tema;
+      for (const [n, v] of Object.entries(m.colores || {})) if (NOMBRES.includes(n) && v) raiz.style.setProperty(`--${n}`, v);
+      retemar();
+    } else if (m.tipo === "orden" && m.orden) ordenar(m.orden);
+  });
+  if (incrustada) window.parent.postMessage({ tipo: "escena3d-lista", id }, "*");
+
+  const anima = typeof api.actualizar === "function";
+  const reloj = new THREE.Timer();
+  let t = tFijo ?? 0, fotogramas = 0;
+  if (anima) api.actualizar(t);
+  const tick = () => {
+    reloj.update();
+    const dt = Math.min(reloj.getDelta(), 0.1);
+    // animando() (optional) keeps the scene still when the module has nothing running: without it, it always moves.
+    const mueve = anima && (api.animando?.() ?? true) && !poco.matches && tFijo === null;
+    if (mueve) { t += dt; api.actualizar(t); }
+    orbita.update();
+    if (!mueve && !pedido) return;
+    pedido = false;
+    render.render(escena, camara);
+    rotulos.render(escena, camara);
+    api.despues?.();
+    if (++fotogramas === 1) {
+      const txt = `escena3d: ${id} ready three=r${THREE.REVISION} triangles=${render.info.render.triangles}`;
+      console.info(txt);
+      diag("OK " + txt, true);
+    }
+  };
+
+  // Paused off-screen: without a loop there is no GPU cost.
+  let activa = false;
+  new IntersectionObserver(([e]) => {
+    if (e.isIntersecting === activa) return;
+    activa = e.isIntersecting;
+    if (activa) { reloj.reset?.(); pedir(); render.setAnimationLoop(tick); }
+    else render.setAnimationLoop(null);
+  }).observe(cont);
+  return { orden: ordenar };
+}
+
+function arrancarEscena(fn) {
+  const cont = document.querySelector(".escena3d");
+  return arrancar(fn, cont).catch((e) => {
+    const m = document.createElement("p");
+    m.className = "fallo3d";
+    m.textContent = /fetch|import|module/i.test(e.message) ? "Could not load the 3D scene. Check your connection." : "The 3D scene failed: " + e.message;
+    cont.append(m);
+    console.error(`escena3d: ${e.message}`);
+    diag(`ERROR escena3d: ${e.message}`);
+  });
+}
+// ── end of NÚCLEO ──
+
+// What goes between the CONTENIDO markers is the scene; the rest (scaffolding) is not touched.
+
+const CSS = `
+.lab-cont .lab-tarjeta { background: color-mix(in srgb, var(--bg) 90%, transparent); border: 1px solid var(--linea); border-radius: 10px; }
+.lab-cont .lab-raiz { position: absolute; inset: 0; z-index: 2; pointer-events: none; color: var(--fg); font-size: .9rem; line-height: 1.45; }
+.lab-cont .lab-raiz[data-formato="compacto"] { display: none; }
+.lab-cont [hidden] { display: none !important; }
+.lab-cont .lab-izq { position: absolute; top: 14px; left: 14px; bottom: 14px; width: 330px; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+.lab-cont .lab-izq > * { pointer-events: auto; }
+.lab-cont .lab-cabecera { padding: 12px 14px; }
+.lab-cont .lab-cabecera h1 { margin: 0; font-size: 1.25rem; line-height: 1.2; font-weight: 700; }
+.lab-cont .lab-antetitulo { margin: 0 0 2px; font-size: .7rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.lab-cont .lab-gancho { margin: 6px 0 0; color: var(--muted); }
+.lab-cont .lab-cifras { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.lab-cont .lab-cifra { grid-column: span 2; padding: 8px 10px; min-width: 0; }
+.lab-cont .lab-cifras[data-n="1"] .lab-cifra { grid-column: span 6; }
+.lab-cont .lab-cifras[data-n="2"] .lab-cifra, .lab-cont .lab-cifras[data-n="4"] .lab-cifra { grid-column: span 3; }
+.lab-cont .lab-cifras[data-n="5"] .lab-cifra:nth-child(n+4) { grid-column: span 3; }
+.lab-cont .lab-rotulo { display: block; font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.lab-cont .lab-valor { display: block; margin-top: 2px; font-size: 1.35rem; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.lab-cont .lab-valor small { font-size: .78rem; font-weight: 500; color: var(--muted); margin-left: 3px; }
+.lab-cont .lab-sub { display: block; font-size: .72rem; color: var(--muted); line-height: 1.3; }
+.lab-cont .lab-relato { padding: 12px 14px; }
+.lab-cont .lab-relato b { font-weight: 650; font-variant-numeric: tabular-nums; }
+.lab-cont .lab-grafico { margin-top: auto; padding: 10px 12px 8px; }
+.lab-cont .lab-grafico canvas { display: block; width: 100%; height: 160px; margin-top: 4px; }
+.lab-cont .lab-mandos { position: absolute; top: 48px; right: 14px; width: 262px; max-height: calc(100% - 62px); overflow-y: auto; padding: 10px 12px 12px; pointer-events: auto; }
+.lab-cont .lab-cabpanel { display: flex; justify-content: flex-end; }
+.lab-cont .lab-grupo { margin: 10px 0; }
+.lab-cont .lab-grupo .lab-rotulo { margin-bottom: 5px; }
+.lab-cont .lab-seg { display: flex; gap: 4px; }
+.lab-cont .lab-seg .lab-boton { flex: 1; }
+.lab-cont .lab-seg.fil { display: grid; grid-template-columns: repeat(var(--c), 1fr); }
+.lab-cont .lab-boton { padding: 5px 9px; border-radius: 7px; border: 1px solid var(--linea); background: var(--bg); color: var(--fg); font: inherit; font-size: .82rem; line-height: 1.3; white-space: nowrap; cursor: pointer; }
+.lab-cont .lab-boton:hover { background: var(--mesa); }
+.lab-cont .lab-boton[aria-pressed="true"] { background: var(--fg); border-color: var(--fg); color: var(--bg); font-weight: 600; } /* neutral: the note's accent can be a color with meaning */
+.lab-cont .lab-boton:focus-visible, .lab-cont .lab-control input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lab-cont .lab-icono { width: 2rem; height: 2rem; padding: 0; font-size: .95rem; }
+.lab-cont .lab-control { margin: 12px 0; }
+.lab-cont .lab-control label { display: flex; justify-content: space-between; font-size: .82rem; color: var(--muted); }
+.lab-cont .lab-control label b { color: var(--fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+.lab-cont .lab-control input[type="range"] { width: 100%; margin: 6px 0 0; accent-color: var(--accent); }
+.lab-cont .lab-fila { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.lab-cont .lab-ayuda { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 5; padding: 14px 18px; min-width: 260px; max-width: 90%; font-size: .85rem; pointer-events: auto; }
+.lab-cont .lab-ayuda ul { margin: 0; padding: 0; list-style: none; }
+.lab-cont .lab-ayuda li { display: flex; gap: 10px; margin: 3px 0; }
+.lab-cont .lab-ayuda kbd { flex: none; min-width: 22px; text-align: center; padding: 0 5px; border: 1px solid var(--linea); border-radius: 5px; font: .78rem var(--mono); }
+.lab-cont .lab-nota { margin: 8px 0 0; color: var(--muted); }
+.lab-cont .lab-etiqueta { color: var(--fg); border-left: 3px solid var(--c); padding: 2px 8px; border-radius: 6px; font-size: .8rem; font-weight: 500; font-variant-numeric: tabular-nums; transition: opacity .18s; }
+.lab-cont .lab-etiqueta.tapada { opacity: 0; }
+.lab-cont[data-formato="compacto"] .lab-etiqueta { font-size: .7rem; padding: 1px 5px; border-left-width: 2px; }
+.lab-cont[data-formato="compacto"] .lab-etiqueta.opc { display: none; }
+.lab-cont[data-formato="compacto"] .mandos3d .lab-rotulo { display: none; }
+.lab-cont[data-formato="compacto"] .mandos3d .lab-grupo { margin: 0; }
+.lab-cont .lab-corta { font-size: .85rem; color: var(--fg); font-variant-numeric: tabular-nums; }
+.lab-cont .lab-corta b { font-weight: 650; }
+.lab-cont[data-formato="completo"] .lab-corta { display: none; }
+`;
+
+function montar(k) {
+  const { THREE, escena, camara, render, orbita, hemi, sol } = k;
+  const url = new URLSearchParams(location.search);
+  const tFijo = url.has("t") ? parseFloat(url.get("t")) : null;   // ?t= freezes the frame (captures)
+
+  // ── ANDAMIAJE (start): same as in the skill template ──────────────────────────
+  const el = (etiqueta, clase, html) => {
+    const e = document.createElement(etiqueta);
+    if (clase) e.className = clase;
+    if (html !== undefined) e.innerHTML = html;
+    return e;
+  };
+  const num = (v, d = 1) => new Intl.NumberFormat("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }).format(v);
+  const hex = (n) => "#" + n.toString(16).padStart(6, "0");
+
+  const cont = k.contenedor;
+  cont.classList.add("lab-cont");
+  const lienzo = render.domElement.parentElement;
+  const estilo = el("style");
+  estilo.textContent = CSS;
+  cont.append(estilo);
+
+  // Layout: header, figures, story and chart on the left; controls on the right; the main control group
+  // goes in the bottom row when the format is compact (aplicarFormato() moves it).
+  const superposicion = el("div", "lab-raiz");
+  superposicion.dataset.formato = "compacto";
+  const izqEl = el("div", "lab-izq");
+  const cabeceraEl = el("header", "lab-tarjeta lab-cabecera");
+  const cifrasEl = el("div", "lab-cifras");
+  const relatoEl = el("div", "lab-tarjeta lab-relato");
+  const graficoEl = el("div", "lab-tarjeta lab-grafico");
+  relatoEl.hidden = true; graficoEl.hidden = true;
+  izqEl.append(cabeceraEl, cifrasEl, relatoEl, graficoEl);
+  const panel = el("div", "lab-tarjeta lab-mandos");
+  const cabPanel = el("div", "lab-cabpanel");
+  const botonAyuda = el("button", "lab-boton lab-icono", "?");
+  botonAyuda.type = "button";
+  botonAyuda.title = "Ayuda (?)";
+  botonAyuda.setAttribute("aria-label", "Ayuda");
+  cabPanel.append(botonAyuda);
+  const controles = el("div", "lab-controles");
+  const fila = el("div", "lab-fila");   // camera views
+  const botonPausa = el("button", "lab-boton");
+  botonPausa.type = "button";
+  botonPausa.hidden = true;
+  const chips = el("div", "lab-fila");
+  controles.append(chips);
+  panel.append(cabPanel, controles, botonPausa, fila);
+  const ayudaEl = el("div", "lab-tarjeta lab-ayuda");
+  ayudaEl.hidden = true;
+  superposicion.append(izqEl, panel, ayudaEl);
+  cont.append(superposicion);
+  const mandosFila = k.mandos;
+
+  // ── Temas ──
+  // Semantic colors: the scene asks for 'azul' or 'base', never a hex. The scene's own colors are added with ampliarTemas().
+  const TEMAS = {
+    oscuro: {
+      base: 0x3b414b,
+      azul: 0x5aa2ff, naranja: 0xff9f4a, verde: 0x45c48f, rojo: 0xff6b6b,
+      amarillo: 0xf2c14e, violeta: 0xa98bff, gris: 0x6f7987, metal: 0xaab3c0,
+      hemiCielo: 0xffffff, hemiSuelo: 0x5b6270, hemi: 0.75, sol: 1.7,
+    },
+    claro: {
+      base: 0xbfc5ce,
+      azul: 0x2a6bd1, naranja: 0xd96d16, verde: 0x1b8f5d, rojo: 0xd13a3a,
+      amarillo: 0xc99609, violeta: 0x7650d0, gris: 0x9099a6, metal: 0x8d97a4,
+      hemiCielo: 0xffffff, hemiSuelo: 0x9aa1ad, hemi: 0.85, sol: 1.5,
+    },
+  };
+  const SEMANTICOS = ["azul", "naranja", "verde", "rojo", "amarillo", "violeta", "gris"];
+  const clavesPropias = [];
+  let tema = "oscuro";
+  // Same keys in both themes: a color that exists in only one comes out undefined when switching, and fails silently.
+  function ampliarTemas({ claro, oscuro } = {}) {
+    if (!claro || !oscuro) throw new Error("ampliarTemas() needs { claro: {…}, oscuro: {…} }");
+    const dif = (a, b, en, falta) => Object.keys(a).filter((c) => !(c in b)).map((c) => `"${c}" is in ${en} but missing in ${falta}`);
+    const problemas = [...dif(claro, oscuro, "claro", "oscuro"), ...dif(oscuro, claro, "oscuro", "claro"),
+      ...Object.keys(claro).filter((c) => c in TEMAS.claro).map((c) => `"${c}" already exists in TEMAS and cannot be overridden`)];
+    if (problemas.length) throw new Error("ampliarTemas(): " + problemas.join("; "));
+    Object.assign(TEMAS.claro, claro); Object.assign(TEMAS.oscuro, oscuro);
+    clavesPropias.push(...Object.keys(claro));
+  }
+  const colorDe = (nombre) => hex(TEMAS[tema][nombre]);
+  const materiales = [];
+  const temaFns = [];
+  // Material with a semantic color: it recolors itself when the theme changes.
+  function mat(clave, opciones = {}) {
+    const m = new THREE.MeshStandardMaterial({
+      roughness: 0.8, metalness: 0.05,
+      ...(clave === "metal" ? { roughness: 0.5, metalness: 0.3 } : {}),   // without an environment map, more metalness renders black
+      ...opciones, color: TEMAS[tema][clave],
+    });
+    materiales.push([m, clave]);
+    return m;
+  }
+  // fn(nombre, colores): for what mat() does not recolor (per-instance colors). Called on registration and on every change.
+  function alCambiarTema(fn) { temaFns.push(fn); fn(tema, TEMAS[tema]); }
+  function colorUI() {
+    const c = { texto: k.colores.fg, tenue: k.colores.muted, fondo: k.colores.bg, borde: k.colores.muted };
+    for (const n of [...SEMANTICOS, ...clavesPropias]) c[n] = hex(TEMAS[tema][n]);
+    return c;
+  }
+
+  // ── State: single source of truth ──
+  // Always starts in the initial state (the first moment); ?e=key:value,… overrides it for captures.
+  let estado = null, anterior = null;
+  const alCambiarFns = [];
+  const requerirEstado = (quien) => { if (!estado) throw new Error(`${quien}() was called before definirEstado()`); };
+  function definirEstado(inicial) {
+    estado = { ...inicial };
+    for (const par of (url.get("e") || "").split(",").filter(Boolean)) {
+      const i = par.indexOf(":"); if (i < 0) continue;
+      const c = par.slice(0, i).trim(), v = par.slice(i + 1).trim();
+      estado[c] = v === "true" ? true : v === "false" ? false : (v !== "" && !isNaN(+v)) ? +v : v;
+    }
+    anterior = null;
+  }
+  function cambiar(parcial) {
+    requerirEstado("cambiar");
+    anterior = estado; estado = { ...estado, ...parcial };
+    refrescar();
+  }
+  function alCambiar(fn) { alCambiarFns.push(fn); }
+
+  // ── Controls ──
+  const grupos = [], deslizadores = [], capas = [], atajos = [], notasAyuda = [];
+  let elPrincipal = null;
+  const efectoDeOpcion = (clave, o) => {
+    const r = { ...(o.valor !== undefined ? { [clave]: o.valor } : {}), ...(o.fija || {}) };
+    if (!Object.keys(r).length) throw new Error(`grupo("${clave}"): option "${o.texto}" needs a value or fixed`);
+    return r;
+  };
+  const opcionActiva = (r) => Object.entries(r).every(([c, v]) => String(estado[c]) === String(v));
+  // Segmented buttons. Option = { texto, tecla?, valor?, fija? }. { principal: true } puts it in the bottom row
+  // in compact (and at the top of the panel in full).
+  function grupo(rotulo, clave, opciones, { principal = false } = {}) {
+    requerirEstado("grupo");
+    const caja = el("div", "lab-grupo"), seg = el("div", "lab-seg");
+    seg.setAttribute("role", "group"); seg.setAttribute("aria-label", rotulo);
+    caja.append(el("span", "lab-rotulo", rotulo), seg);
+    const efectos = opciones.map((o) => efectoDeOpcion(clave, o));
+    const botones = opciones.map((o, i) => {
+      const b = el("button", "lab-boton"); b.type = "button"; b.textContent = o.texto;
+      b.addEventListener("click", () => cambiar(efectos[i]));
+      seg.append(b);
+      if (o.tecla) atajos.push({ tecla: o.tecla, texto: `${rotulo}: ${o.texto}`, fn: () => cambiar(efectos[i]) });
+      return b;
+    });
+    grupos.push({ efectos, botones });
+    if (principal) { elPrincipal = caja; colocarPrincipal(); } else controles.append(caja);
+    ajustarGrupos();
+  }
+  // Lays out each group: one row; if it does not fit, 2, 3… even rows, the first arrangement with no overflow.
+  function ajustarGrupos() {
+    const mcd = (a, b) => (b ? mcd(b, a % b) : a);
+    for (const seg of k.contenedor.querySelectorAll(".lab-seg")) {
+      const bs = [...seg.children], n = bs.length;
+      if (n < 2 || !seg.getClientRects().length) continue;
+      const cabe = () => seg.scrollWidth <= seg.clientWidth + 1 && bs.every((b) => b.scrollWidth <= b.clientWidth + 1);
+      const poner = (kf) => {
+        seg.classList.toggle("fil", kf > 0);
+        const m = kf ? n - kf * (Math.ceil(n / kf) - 1) : 0;
+        const cols = kf ? kf * m / mcd(kf, m) : 1;
+        seg.style.setProperty("--c", cols);
+        bs.forEach((b, i) => { const span = kf ? cols / (i >= n - m ? m : kf) : 1; b.style.gridColumn = span > 1 ? `span ${span}` : ""; });
+      };
+      poner(0);
+      for (let filas = 2, previo = n; filas <= n && !cabe(); filas++) {
+        const kf = Math.ceil(n / filas);
+        if (kf !== previo) poner(previo = kf);
+      }
+    }
+  }
+  function colocarPrincipal() {
+    if (!elPrincipal) return;
+    if (formato === "compacto") mandosFila.prepend(elPrincipal);
+    else controles.prepend(elPrincipal);
+  }
+  function deslizador(rotulo, clave, { min = 0, max = 1, paso = 0.01, formato: fmt = (v) => num(v, 2), tambien = {} } = {}) {
+    requerirEstado("deslizador");
+    const d = el("div", "lab-control", `<label><span></span><b></b></label><input type="range" min="${min}" max="${max}" step="${paso}">`);
+    d.querySelector("span").textContent = rotulo;
+    const inp = d.querySelector("input");
+    inp.setAttribute("aria-label", rotulo);
+    inp.addEventListener("input", () => cambiar({ ...tambien, [clave]: +inp.value }));
+    deslizadores.push({ clave, fmt, inp, eco: d.querySelector("b") });
+    controles.append(d);
+  }
+  function capa(rotulo, clave, tecla) {
+    requerirEstado("capa");
+    const b = el("button", "lab-boton"); b.type = "button"; b.textContent = rotulo;
+    b.addEventListener("click", () => cambiar({ [clave]: !estado[clave] }));
+    chips.append(b);
+    capas.push({ clave, b });
+    if (tecla) atajos.push({ tecla, texto: `Capa: ${rotulo}`, fn: () => cambiar({ [clave]: !estado[clave] }) });
+  }
+  function pintarMandos() {
+    for (const g of grupos) g.efectos.forEach((r, i) => {
+      const on = opcionActiva(r);
+      g.botones[i].setAttribute("aria-pressed", String(on));
+    });
+    for (const s of deslizadores) { s.inp.value = estado[s.clave]; s.eco.textContent = s.fmt(estado[s.clave]); }
+    for (const c of capas) c.b.setAttribute("aria-pressed", String(!!estado[c.clave]));
+  }
+  function pintarPausa() { botonPausa.textContent = pausado ? "▶ Resume" : "⏸ Pause"; }
+
+  // ── Figures, story, labels and chart ──
+  const cifras = [];
+  function cabecera({ antetitulo, titulo, gancho }) {
+    cabeceraEl.innerHTML = `<p class="lab-antetitulo"></p><h1></h1><p class="lab-gancho"></p>`;
+    cabeceraEl.querySelector(".lab-antetitulo").textContent = antetitulo;
+    cabeceraEl.querySelector("h1").textContent = titulo;
+    cabeceraEl.querySelector(".lab-gancho").textContent = gancho;
+  }
+  function cifra(rotulo, fn) {
+    const c = el("div", "lab-tarjeta lab-cifra", `<span class="lab-rotulo"></span><span class="lab-valor num"></span><span class="lab-sub"></span>`);
+    c.querySelector(".lab-rotulo").textContent = rotulo;
+    cifrasEl.append(c);
+    cifrasEl.dataset.n = cifras.length + 1;
+    cifras.push({ fn, valor: c.querySelector(".lab-valor"), sub: c.querySelector(".lab-sub") });
+  }
+  let fnRelato = null;
+  function relato(fn) { fnRelato = fn; relatoEl.hidden = false; }
+  // Short line: only in compact (the note), next to the moments. One idea and one number, ~70 characters: the conclusion of the story.
+  let fnCorta = null;
+  const cortaEl = el("span", "lab-corta");
+  function lineaCorta(fn) { fnCorta = fn; k.mandos.append(cortaEl); }
+
+  const etiquetas = [];
+  // Label anchored to a 3D object. `texto`: string or function (e, t) of the state and time. `color`: semantic name from the theme.
+  // `lado`: 'izq' | 'der' beside the anchor. `opcional`: hidden in compact. `prioridad`: the highest wins if they overlap.
+  function etiqueta(objeto, texto, { color = "azul", alto = 0, lado = "", opcional = false, prioridad = 0 } = {}) {
+    const o = k.etiqueta(objeto, "", { alto });
+    const div = o.element;
+    div.className = "etiqueta3d lab-etiqueta" + (opcional ? " opc" : "");
+    div.style.setProperty("--c", colorDe(color));
+    if (lado) o.center.set(lado === "izq" ? 1.1 : -0.1, 0.5);
+    etiquetas.push({ div, texto, color, prioridad, tapada: false, t0: -Infinity });
+    return o;
+  }
+  // After drawing: the label that touches a panel or leaves the canvas is covered, and the lower-priority one if two overlap.
+  // "Covering" is opacity, not display: it is still measured and can come back. Hysteresis: to cover, touching is enough; to come back,
+  // it must stay clear by 8–10 px for at least 300 ms, so it does not flicker when rotating.
+  function resolverEtiquetas() {
+    if (!etiquetas.length) return;
+    const L = lienzo.getBoundingClientRect();
+    const paneles = [...cont.querySelectorAll(".lab-izq > *, .lab-mandos, .lab-ayuda:not([hidden]), .pantalla3d")]
+      .map((p) => p.getBoundingClientRect()).filter((r) => r.width && r.height);
+    const lista = [], ahora = performance.now();
+    let pendiente = false;
+    for (const e of etiquetas) {
+      const r = e.div.getBoundingClientRect();
+      if (r.width) lista.push({ e, r });
+      else if (e.tapada) { e.tapada = false; e.div.classList.remove("tapada"); }
+    }
+    lista.sort((a, b) => b.e.prioridad - a.e.prioridad || a.e.tapada - b.e.tapada);
+    const choca = (r, o, m) => r.left < o.right + m && r.right > o.left - m && r.top < o.bottom + m && r.bottom > o.top - m;
+    const puestas = [];
+    for (const { e, r } of lista) {
+      const mp = e.tapada ? 8 : 0, ml = e.tapada ? 10 : 2;
+      const cabe = r.left >= L.left + mp && r.top >= L.top + mp && r.right <= L.right - mp && r.bottom <= L.bottom - mp &&
+        !paneles.some((p) => choca(r, p, mp)) && !puestas.some((o) => choca(r, o, ml));
+      if (cabe) puestas.push(r);
+      if (e.tapada !== cabe) continue;
+      if (ahora - e.t0 < 300) { pendiente = true; continue; }
+      e.tapada = !cabe; e.t0 = ahora; e.div.classList.toggle("tapada", e.tapada);
+    }
+    if (pendiente) setTimeout(() => k.pedir(), 320);
+  }
+
+  const graficos = [];
+  // fn(ctx, w, h, estado, colores, t) draws on a 2D canvas with CSS pixels.
+  function grafico(rotulo, fn) {
+    graficoEl.hidden = false;
+    graficoEl.append(el("div", "lab-rotulo", rotulo));
+    const canvas = el("canvas");
+    canvas.setAttribute("role", "img"); canvas.setAttribute("aria-label", rotulo);
+    graficoEl.append(canvas);
+    graficos.push({ fn, canvas });
+  }
+  function pintarGrafico() {
+    if (!estado || superposicion.dataset.formato !== "completo") return;
+    const dpr = Math.min(devicePixelRatio, 2), colores = colorUI();
+    for (const g of graficos) {
+      const r = g.canvas.getBoundingClientRect();
+      if (!r.width) continue;
+      const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
+      if (g.canvas.width !== w || g.canvas.height !== h) { g.canvas.width = w; g.canvas.height = h; }
+      const ctx = g.canvas.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, r.width, r.height);
+      g.fn(ctx, r.width, r.height, estado, colores, tFlujo);
+    }
+  }
+  // Only touches the DOM if the text changed.
+  function escribirSi(nodo, campo, valor) {
+    const c = "_ult_" + campo;
+    if (nodo[c] !== valor) { nodo[c] = valor; nodo[campo] = valor; }
+  }
+  // Figures, story, labels and chart receive (estado, t): while animating they repaint about 10 times per second.
+  function pintarTextos() {
+    if (fnRelato) escribirSi(relatoEl, "innerHTML", fnRelato(estado, tFlujo));
+    if (fnCorta) escribirSi(cortaEl, "innerHTML", fnCorta(estado, tFlujo));
+    for (const c of cifras) {
+      const r = c.fn(estado, tFlujo);
+      escribirSi(c.valor, "innerHTML", `${r.valor}${r.unidad ? `<small>${r.unidad}</small>` : ""}`);
+      escribirSi(c.sub, "textContent", r.sub || "");
+    }
+    for (const e of etiquetas) escribirSi(e.div, "textContent", typeof e.texto === "function" ? e.texto(estado, tFlujo) : e.texto);
+  }
+
+  // ── Help ──
+  function ayuda(html) { notasAyuda.push(html); }
+  function pintarAyuda() {
+    const filas = [["?", "This help"], ...atajos.filter((a) => !a.activo || a.activo()).map((a) => [a.tecla === " " ? "Space" : a.tecla, a.texto])];
+    ayudaEl.innerHTML = `<p class="lab-rotulo">Shortcuts</p><ul>${filas.map(([tecla, texto]) => `<li><kbd>${tecla}</kbd><span>${texto}</span></li>`).join("")}</ul>` +
+      `<p class="lab-nota">drag: rotate · right button: pan · wheel: zoom</p>` +
+      notasAyuda.map((h) => `<p class="lab-nota">${h}</p>`).join("");
+  }
+  function alternarAyuda() { if (ayudaEl.hidden) pintarAyuda(); ayudaEl.hidden = !ayudaEl.hidden; k.pedir(); }
+  botonAyuda.addEventListener("click", alternarAyuda);
+
+  // ── Transitions ──
+  // Interpolates numeric properties; on the first paint and without motion (?t=) it is applied at once.
+  const transiciones = [];
+  let arrancado = false;
+  function suavizar(objeto, destinos, ms = 400, alActualizar) {
+    if (!arrancado || tFijo !== null || ms <= 0) {
+      Object.assign(objeto, destinos); alActualizar?.(); marcarSombras(); return;
+    }
+    const previa = transiciones.findIndex((x) => x.objeto === objeto);
+    if (previa >= 0) transiciones.splice(previa, 1);
+    const desde = {};
+    for (const c in destinos) desde[c] = objeto[c];
+    transiciones.push({ objeto, desde, destinos, ms, alActualizar, t0: performance.now() });
+    k.pedir();
+  }
+  function avanzarTransiciones() {
+    if (!transiciones.length) return false;
+    const ahora = performance.now();
+    for (let i = transiciones.length - 1; i >= 0; i--) {
+      const x = transiciones[i];
+      const p = Math.min(1, (ahora - x.t0) / x.ms);
+      const e = p < 0.5 ? 4 * p ** 3 : 1 - (-2 * p + 2) ** 3 / 2;
+      for (const c in x.destinos) x.objeto[c] = x.desde[c] + (x.destinos[c] - x.desde[c]) * e;
+      x.alActualizar?.();
+      if (p >= 1) transiciones.splice(i, 1);
+    }
+    return true;
+  }
+
+  // ── Shadows ──
+  // The shadow map is not recalculated by itself: only when something that casts a shadow changes (marcarSombras).
+  function marcarSombras() { k.render.shadowMap.needsUpdate = true; k.pedir(); }
+
+  // ── Pedestal ──
+  function pedestal({ ancho = 8, fondo = 5, alto = 0.5 } = {}) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(ancho, alto, fondo), mat("base"));
+    m.position.y = -alto / 2;
+    m.castShadow = m.receiveShadow = true;
+    escena.add(m);
+    k.sombraSuelo(-alto, 60);
+    return m;
+  }
+
+  // ── Format, framing and views ──
+  // Compact: the scene and the control row. Full (fullscreen): panels on the sides, and the rest fitted to the free area.
+  let formato = "compacto";
+  let VISTAS = {};
+  let ASPECTO_BASE = 1.45;   // width/height ratio of the free area the views are chosen for
+  const aspectoBase = () => (typeof ASPECTO_BASE === "number" ? ASPECTO_BASE : (ASPECTO_BASE[formato] ?? 1.45));
+  const vistasVisibles = () => Object.keys(VISTAS).filter((c) => !VISTAS[c].oculta);
+  const vistaBase = () => (VISTAS.inicial ? "inicial" : vistasVisibles()[0]);
+  let vistaActual = "inicial";
+  let kVista = 1, zonaClave = "";
+  // Free area in canvas pixels.
+  function zonaLibre() {
+    const L = lienzo.getBoundingClientRect(), W = L.width, H = L.height;
+    if (formato === "completo") {
+      const izq = izqEl.getBoundingClientRect(), der = panel.getBoundingClientRect();
+      return { x0: izq.right - L.left + 8, x1: (der.width ? der.left - L.left : W) - 8, y0: 0, y1: H, W, H };
+    }
+    return { x0: 0, x1: W, y0: 0, y1: H, W, H };
+  }
+  // setViewOffset off-centers the projection: the figure is repositioned in the free gap and the orbit keeps circling the point of interest.
+  function encuadrar() {
+    const z = zonaLibre();
+    camara.setViewOffset(z.W, z.H, -((z.x0 + z.x1) / 2 - z.W / 2), -((z.y0 + z.y1) / 2 - z.H / 2), z.W, z.H);
+  }
+  // The fov is vertical: narrowing the area loses width; the camera pulls back as much as needed.
+  function factorDistancia() {
+    const z = zonaLibre();
+    const ancho = Math.max(80, z.x1 - z.x0), alto = Math.max(80, z.y1 - z.y0);
+    return Math.min(3, Math.max(1, (z.H / alto) * Math.max(1, aspectoBase() / (ancho / alto))));
+  }
+  function mirarDesde(clave) {
+    let v = VISTAS[clave]; if (!v) return;
+    if (formato === "compacto" && v.compacto) v = { ...v, ...v.compacto };
+    vistaActual = clave;
+    const f = kVista = factorDistancia();
+    const mira = new THREE.Vector3(...(v.mira || [0, 0, 0]));
+    camara.position.set(...v.pos).sub(mira).multiplyScalar(f).add(mira);
+    orbita.target.copy(mira);
+    orbita.update();
+    fila.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.vista === clave)));
+    k.pedir();
+  }
+  // After each frame: if the free area changed (the window or the panels), it reframes without losing the angle.
+  function comprobarZona() {
+    const z = zonaLibre();
+    const clave = [z.W, z.H, z.x0, z.x1, z.y0, z.y1].map(Math.round).join(",");
+    if (clave === zonaClave) return;
+    zonaClave = clave;
+    if (!arrancado) return;
+    const f = factorDistancia();
+    camara.position.sub(orbita.target).multiplyScalar(f / kVista).add(orbita.target);
+    kVista = f;
+    encuadrar();
+    orbita.update();
+    k.pedir();
+  }
+
+  // ── Animation ──
+  // ANIMADA: the scene has something running. animar(t, e) is a pure function of t (animation time) and the state.
+  let ANIMADA = false, animar = () => {};
+  let pausado = false, tFlujo = tFijo ?? 0, tPrev = null, animadaVista = null, tTextos = -1;
+  function sincronizarPausa() {
+    if (ANIMADA === animadaVista) return;
+    if (animadaVista === false && ANIMADA && pausado) pausado = false;   // a new animation starts, it does not stay paused
+    animadaVista = ANIMADA;
+    botonPausa.hidden = !ANIMADA;
+    pintarPausa();
+    k.pedir();
+  }
+
+  // ── Refresh ──
+  function refrescar() {
+    for (const fn of alCambiarFns) fn(estado, anterior);
+    animar(tFlujo, estado);   // also when still: places the pieces for this moment
+    sincronizarPausa();
+    pintarMandos(); pintarTextos(); pintarGrafico();
+    marcarSombras();
+  }
+  // Theme colors: the core's for the text and the table; the scene's for everything else.
+  function aplicarTema(nuevo) {
+    tema = nuevo;
+    const T = TEMAS[tema];
+    for (const [m, clave] of materiales) m.color.setHex(T[clave]);
+    hemi.color.setHex(T.hemiCielo); hemi.groundColor.setHex(T.hemiSuelo);
+    hemi.intensity = T.hemi; sol.intensity = T.sol;
+    for (const e of etiquetas) e.div.style.setProperty("--c", colorDe(e.color));
+    for (const fn of temaFns) fn(tema, T);
+    pintarGrafico();
+    marcarSombras();
+  }
+  function aplicarFormato(nuevo) {
+    formato = nuevo;
+    superposicion.dataset.formato = formato;
+    cont.dataset.formato = formato;
+    orbita.enableZoom = true;
+    if (formato === "compacto") ayudaEl.hidden = true;
+    colocarPrincipal();
+    ajustarGrupos();
+    if (arrancado) mirarDesde(vistaActual);
+    pintarGrafico();
+    zonaClave = "";
+    k.pedir();
+  }
+
+  // ── ANDAMIAJE (end of the upper part) ──────────────────────────────────────────
+  orbita.maxPolarAngle = Math.PI * 0.49;   // CONTENIDO can change these limits
+  orbita.minDistance = 3; orbita.maxDistance = 40;
+
+  // ── CONTENIDO (start) ─────────────────────────────────────────────────────────────
+  // Minimal example: a sphere that changes color with the state and rotates if animated. Replace with the scene from step 1.
+  cabecera({ antetitulo: "AREA · TOPIC", titulo: "Lab title", gancho: "The question the scene answers." });
+  definirEstado({ modo: "a", giro: false });
+
+  const matA = mat("azul"), matB = mat("naranja");
+  const esfera = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16), matA);
+  esfera.castShadow = true;
+  esfera.position.y = 1;
+  escena.add(esfera);
+  pedestal({ ancho: 4, fondo: 4, alto: 0.3 });
+  etiqueta(esfera, (e) => `Mode · ${e.modo}`, { color: "naranja", alto: 1.4, prioridad: 1 });
+
+  grupo("Mode", "modo", [
+    { valor: "a", texto: "Blue", tecla: "1" },
+    { valor: "b", texto: "Orange", tecla: "2" },
+  ], { principal: true });
+  capa("Spin", "giro", "g");
+
+  cifra("Mode", (e) => ({ valor: e.modo, sub: "current state" }));
+  relato((e) => `With mode <b>${e.modo}</b> the sphere is ${e.modo === "a" ? "blue" : "orange"}.`);
+  lineaCorta((e) => `Mode <b>${e.modo}</b>: sphere ${e.modo === "a" ? "blue" : "orange"}`);
+
+  alCambiar((e) => {
+    esfera.material = e.modo === "a" ? matA : matB;
+    ANIMADA = !!e.giro;
+  });
+  animar = (t) => { esfera.rotation.y = t * 0.6; };   // pure function of t
+
+  VISTAS = { inicial: { pos: [0, 4, 7], mira: [0, 0.5, 0] } };
+  ASPECTO_BASE = 1.72;
+  // ── CONTENIDO (end) ────────────────────────────────────────────────────────────────
+
+  // ── ANDAMIAJE (start-up) ───────────────────────────────────────────────────────────
+  k.render.shadowMap.autoUpdate = false;
+  k.alCambiarTema((c) => aplicarTema(c.oscuro ? "oscuro" : "claro"));
+  k.alCambiarFormato(aplicarFormato);
+
+  for (const clave of vistasVisibles()) {
+    const b = el("button", "lab-boton", clave[0].toUpperCase() + clave.slice(1));
+    b.type = "button"; b.dataset.vista = clave;
+    b.addEventListener("click", () => mirarDesde(clave));
+    fila.append(b);
+  }
+  botonPausa.addEventListener("click", () => { pausado = !pausado; pintarPausa(); k.pedir(); });
+  atajos.push({ tecla: " ", texto: "Pause", activo: () => ANIMADA, fn: () => { if (ANIMADA) botonPausa.click(); } });
+  atajos.push({ tecla: "0", texto: "Initial view", fn: () => mirarDesde(vistaBase()) });
+  // Shortcuts: only in fullscreen. Inside the page, the keys belong to the page.
+  addEventListener("keydown", (ev) => {
+    if (formato !== "completo" || ev.ctrlKey || ev.metaKey || ev.altKey || ev.target.matches?.("input")) return;
+    if (ev.key === " " && ev.target.tagName === "BUTTON") return;   // a focused button is pressed with its own space bar
+    if (ev.key === "?" || ev.key === "h") { alternarAyuda(); return; }
+    const a = atajos.find((x) => x.tecla === ev.key && (!x.activo || x.activo()));
+    if (a) { ev.preventDefault(); a.fn(); }
+  });
+
+  // First refresh before starting: the initial placement of the cables is immediate, with no transition.
+  refrescar();
+  arrancado = true;
+  encuadrar();
+  mirarDesde(VISTAS[url.get("vista")] ? url.get("vista") : vistaBase());
+  zonaClave = "";
+  comprobarZona();
+
+  return {
+    // Animation requested from the core only while something moves: flow running or a pending transition.
+    animando: () => transiciones.length > 0 || (ANIMADA && !pausado),
+    actualizar(tt) {
+      const dt = tPrev === null ? 0 : tt - tPrev;
+      tPrev = tt;
+      if (ANIMADA && !pausado) tFlujo += dt;
+      if (avanzarTransiciones()) marcarSombras();
+      if (ANIMADA) animar(tFlujo, estado);
+      if (ANIMADA && !pausado && tt - tTextos > 0.1) { tTextos = tt; pintarTextos(); pintarGrafico(); }
+    },
+    despues() { resolverEtiquetas(); comprobarZona(); },
+    // Commands from the data-3d buttons: state keys. `vista` is resolved by the core.
+    orden(d) {
+      const cambios = {};
+      for (const c of Object.keys(d)) if (estado && c in estado) cambios[c] = d[c];
+      if (d.vista && VISTAS[d.vista]) mirarDesde(d.vista);
+      if (Object.keys(cambios).length) cambiar(cambios);
+    },
+  };
+}
+
+arrancarEscena(montar);
+</script>
+</body>
+</html>

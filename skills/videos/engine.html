@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>{{TITLE}}</title>
+<style>
+:root{--ground:#0b1517;--ink:#e7dec8;--muted:#8fa4a2;--accent:#d04b40;--line:rgba(231,222,200,.16);--line2:rgba(231,222,200,.42);color-scheme:dark}
+html,body{height:100%;margin:0;background:var(--ground);color:var(--ink)}
+[hidden]{display:none!important}
+body{font:14px/1.4 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding-inline:16px;padding-block:16px;box-sizing:border-box;overflow:hidden}
+#frame,#bar,#hint{width:min(100%,calc((100vh - 128px) * var(--ar,1.7778)))}
+#frame{position:relative;aspect-ratio:var(--ar,1.7778);max-width:100%;box-shadow:0 30px 90px rgba(0,0,0,.55),0 0 0 1px var(--line);border-radius:3px;overflow:hidden;background:#10201f}
+canvas{display:block;width:100%;height:100%;cursor:crosshair;touch-action:none}
+#start{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:2px;border:0;margin:0;padding:0;color:var(--ink);cursor:pointer;background:radial-gradient(ellipse at center,rgba(6,14,16,.08),rgba(6,14,16,.62));font:inherit}
+#start .ring{width:92px;height:92px;border-radius:50%;border:2px solid var(--ink);display:grid;place-items:center;background:rgba(11,21,23,.4);transition:transform .2s}
+#start:hover .ring,#start:focus-visible .ring{transform:scale(1.06)}
+#start .tri{width:0;height:0;border-left:26px solid var(--accent);border-top:16px solid transparent;border-bottom:16px solid transparent;margin-left:8px}
+#start .name{font-family:ui-serif,"Iowan Old Style",Palatino,"Palatino Linotype",Georgia,serif;font-style:italic;font-size:clamp(28px,5.2vw,68px);margin:16px 0 2px;letter-spacing:.01em;text-shadow:0 2px 18px rgba(0,0,0,.45)}
+#start .spec{color:var(--ink);opacity:.78;font-size:12px;letter-spacing:.14em;text-transform:uppercase}
+#bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#bar button{font:inherit;font-size:13px;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:999px;padding:6px 13px;cursor:pointer;white-space:nowrap}
+#bar button:hover{border-color:var(--line2)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#track{flex:1 1 220px;position:relative;height:30px;display:grid;gap:3px;cursor:pointer;touch-action:none;user-select:none}
+#track .seg{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-top:2px solid var(--line);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding-top:6px}
+#track .seg.on{border-color:var(--accent);color:var(--ink)}#track .seg.estrecho{color:transparent}
+#head{position:absolute;top:-5px;left:0;width:2px;height:12px;background:var(--ink);transform:translateX(-1px);pointer-events:none}
+#tc{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;font-size:12px;color:var(--muted)}
+#hint{margin:0;color:var(--muted);font-size:12px;line-height:1.7}
+kbd{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:11px;color:var(--ink)}
+#bar button.ico{width:34px;height:34px;padding:0;display:grid;place-items:center}#bar button.ico svg{width:16px;height:16px}
+html.fondo-claro #start{color:#1B1F3B;background:radial-gradient(ellipse at center,rgba(255,255,255,.15),rgba(255,255,255,.6))}html.fondo-claro #start .ring{border-color:#1B1F3B;background:rgba(255,255,255,.55)}html.fondo-claro #start .name,html.fondo-claro #start .spec{color:#1B1F3B;text-shadow:0 1px 12px rgba(255,255,255,.8)}
+html.bare body{padding:0;gap:0}html.bare #bar,html.bare #hint{display:none}html.bare #frame{width:100vw;height:100vh;box-shadow:none;border-radius:0}
+html.incrustado body,html:fullscreen body{padding:0;gap:0}html.incrustado #hint,html:fullscreen #hint{display:none}html.incrustado #frame,html:fullscreen #frame{width:100vw;height:100vh;box-shadow:none;border-radius:0}
+html.incrustado #bar,html:fullscreen #bar{position:fixed;inset:auto 0 0 0;width:auto;padding:22px 12px 8px;background:linear-gradient(transparent,rgba(0,0,0,.75));opacity:0;transition:opacity .2s;z-index:5}
+html.controles #bar{opacity:1}html.incrustado:not(.controles) #frame,html:fullscreen:not(.controles) #frame{cursor:none}
+@media (max-width:640px){#bar button{padding:5px 10px;font-size:12px}#track{order:10;flex-basis:100%}}
+</style>
+</head>
+<body>
+<div id="frame">
+  <canvas id="film" aria-label="{{TITLE}}: {{SYNOPSIS}}"></canvas>
+  <button id="start" aria-label="Play {{TITLE}} with sound"><span class="ring"><span class="tri"></span></span><span class="name">{{TITLE}}</span><span class="spec" id="spec"></span></button>
+</div>
+<div id="bar" role="toolbar" aria-label="Video controls">
+  <button id="pp" class="ico" aria-pressed="false" aria-label="Play" title="Play"></button>
+  <button id="rs" class="ico" aria-label="Restart" title="Restart"></button>
+  <div id="track" aria-label="Scrub the video"><span id="head"></span></div>
+  <span id="tc"></span>
+  <button id="sm" class="ico" aria-label="Stop-motion" title="Stop-motion"></button>
+  <button id="snd" class="ico" aria-label="Sound off" title="Sound off"></button>
+  <button id="fs" class="ico" aria-label="Full screen" title="Full screen"></button>
+</div>
+<p id="hint"><kbd>Space</kbd> play/pause · <kbd>←</kbd><kbd>→</kbd> one pose · <kbd>S</kbd> stop-motion/smooth · <kbd>1</kbd>–<kbd>9</kbd> shots · <kbd>M</kbd> mute</p>
+<script>
+// Inside a note (iframe) the video fills the whole space, and the controls appear on top when the mouse hovers over it.
+if (window.self !== window.top) document.documentElement.classList.add('incrustado');
+// Any error is written on top of the video, so it shows up in the review capture.
+addEventListener('error', e => { const p = document.createElement('pre'); p.textContent = 'ERROR: ' + e.message + (e.lineno ? ' (line ' + e.lineno + ')' : ''); p.style.cssText = 'position:fixed;inset:auto 0 0 0;margin:0;padding:12px;background:#000;color:#ff5555;font:16px monospace;z-index:99;white-space:pre-wrap'; document.body.append(p); });
+</script>
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+//  {{TITLE}} — a film drawn and scored entirely in code.
+//  No images, samples or libraries: every pixel and every sound is made here (a narration
+//  track, when there is one, is the only recorded audio). Size, frame rate and look come from
+//  FORMAT; the length is the sum of the shots. With expo > 1 puppets hold each pose for
+//  `expo` frames (stop motion) while the camera still moves on every frame.
+// ═══════════════════════════════════════════════════════════════════════════
+"use strict";
+// ═══ YOUR FILM · FORMAT — size, frame rate, pose rate and post look (see ENGINE.md for the presets) ═══
+const FORMAT = {
+  w: 2560, h: 1440, fps: 60,
+  expo: 5,                                   // frames each pose holds: 5 = stop motion at 12 poses/s, 1 = smooth animation
+  post: { flicker: .05, grain: .6, vignette: 1, bg: '#0c1719' },
+  ink: [12, 22, 25], light: [242, 234, 216], // what tone() darkens toward and lightens toward
+  paper: .45,                                // default paper texture baked into every sprite (0 = flat)
+  shadow: { dx: 6, dy: 9, blur: 11, a: .3 },  // default contact shadow of every sprite (null = none)
+  pixel: false,                              // true: w×h is a pixel grid (e.g. 640×360), shown and exported without smoothing
+  poster: null,                              // second shown before playback starts (the poster); null = frame 0
+  safe: null,                                // { top, bottom, left, right } as fractions; only record.cjs --zonas draws it
+};
+const W = FORMAT.w, H = FORMAT.h, FPS = FORMAT.fps, EXPO = FORMAT.expo;
+let DUR = 0, NF = 0; // set at boot from the shots
+const TAU = Math.PI * 2, PI = Math.PI;
+const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
+const lerp = (a, b, t) => a + (b - a) * t;
+const inv = (a, b, x) => clamp((x - a) / (b - a), 0, 1);
+const smooth = (a, b, x) => { x = inv(a, b, x); return x * x * (3 - 2 * x); };
+const eio = t => { t = clamp(t, 0, 1); return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
+const eo = t => 1 - Math.pow(1 - clamp(t, 0, 1), 3);
+const esine = t => .5 - .5 * Math.cos(PI * clamp(t, 0, 1));
+const rng = seed => { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+const hash = (a, b = 0, c = 0) => { let h = Math.imul(a | 0, 374761393) ^ Math.imul((b | 0) + 7919, 668265263) ^ Math.imul((c | 0) + 104729, 1274126177); h = Math.imul(h ^ (h >>> 13), 1103515245); h ^= h >>> 16; h = Math.imul(h ^ (h >>> 15), 2246822519); h ^= h >>> 13; return (h >>> 0) / 4294967296; };
+
+// ── Perlin gradient noise ────────────────────────────────────────────────────
+const noise = (() => {
+  const r = rng(1337), p = new Uint8Array(512), gx = new Float32Array(256), gy = new Float32Array(256), perm = [];
+  for (let i = 0; i < 256; i++) perm[i] = i;
+  for (let i = 255; i > 0; i--) { const j = (r() * (i + 1)) | 0; const t = perm[i]; perm[i] = perm[j]; perm[j] = t; }
+  for (let i = 0; i < 512; i++) p[i] = perm[i & 255];
+  for (let i = 0; i < 256; i++) { const a = r() * TAU; gx[i] = Math.cos(a); gy[i] = Math.sin(a); }
+  const fade = t => t * t * t * (t * (t * 6 - 15) + 10);
+  return (x, y) => {
+    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, X = xi & 255, Y = yi & 255;
+    const aa = p[p[X] + Y], ab = p[p[X] + Y + 1], ba = p[p[X + 1] + Y], bb = p[p[X + 1] + Y + 1];
+    const u = fade(xf), v = fade(yf);
+    const x1 = lerp(gx[aa] * xf + gy[aa] * yf, gx[ba] * (xf - 1) + gy[ba] * yf, u);
+    const x2 = lerp(gx[ab] * xf + gy[ab] * (yf - 1), gx[bb] * (xf - 1) + gy[bb] * (yf - 1), u);
+    return lerp(x1, x2, v) * 1.42;
+  };
+})();
+const fbm = (x, y, o = 3) => { let s = 0, a = .5, f = 1; for (let i = 0; i < o; i++) { s += a * noise(x * f + i * 17.3, y * f - i * 9.1); f *= 2.03; a *= .5; } return s; };
+// divergence-free flow: curl of a drifting noise potential (px/s per unit amp)
+function curl(x, y, t, sc = .0032) {
+  const X = x * sc, Y = y * sc, h = .015;
+  const n = (a, b) => noise(a + t * .23, b - t * .31) + .5 * noise(a * 2.1 - t * .4 + 3.1, b * 2.1 + t * .2 + 5.2);
+  return [(n(X, Y + h) - n(X, Y - h)) / (2 * h), -(n(X + h, Y) - n(X - h, Y)) / (2 * h)];
+}
+
+// ── colour ──────────────────────────────────────────────────────────────────
+const C = {
+  teal: '#467f85', tealL: '#5a9197', tealD: '#2f6369', tealDD: '#20484f', sky: '#43808a', skyL: '#4f8b92',
+  navy: '#17404c', navyD: '#10313b', hill: '#1f4d5a', hillL: '#7fa6ad', hillLL: '#9dbfc3',
+  red: '#cf4b40', redD: '#a93a34', redL: '#dd6254', coral: '#d05b55', coralL: '#df746a', coralD: '#b2463f',
+  orange: '#de835d', ochre: '#cf9a48', terra: '#c86a47', pear: '#d9c46f', gold: '#d8a54a',
+  cream: '#e4dbc4', creamL: '#efe8d6', creamD: '#c9bfa6', paper: '#ebe3cf', skin: '#e3d4b4', cheek: '#e39a8c',
+  ink: '#15191b', inkS: '#262c2e', slate: '#46565c', floor: '#35494e', floorL: '#4a5f63', table: '#4c5a54', tableD: '#3b4843',
+  bag: '#61736e', wing: '#5d777c', bark: '#2a1715', brown: '#5b3526', cork: '#a8744b', grey: '#8d9696', blueGrey: '#88a6a1', lightBlue: '#8aaeb3'
+};
+const hexA = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+const css = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+const mixc = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+const INKC = FORMAT.ink, LIGHTC = FORMAT.light;
+// tone(h, k): k<0 darkens toward teal-ink, k>0 lightens toward paper — keeps every shade inside the print palette
+const tone = (h, k, a = 1) => { const c = hexA(h); return css(k < 0 ? mixc(c, INKC, -k) : mixc(c, LIGHTC, k), a); };
+
+// ── canvas helpers ──────────────────────────────────────────────────────────
+const mk = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.ceil(w)); c.height = Math.max(1, Math.ceil(h)); return c; };
+const g2 = c => c.getContext('2d');
+
+// hand-cut outline: subdivide each edge and nudge it with noise so nothing is ruler-straight
+function cutPath(g, pts, { closed = true, amp = 1.2, step = 16, seed = 1, begin = true } = {}) {
+  if (begin) g.beginPath();
+  let first = true, k = 0; const n = pts.length, m = closed ? n : n - 1;
+  for (let i = 0; i < m; i++) {
+    const x0 = pts[i][0], y0 = pts[i][1], x1 = pts[(i + 1) % n][0], y1 = pts[(i + 1) % n][1];
+    const L = Math.hypot(x1 - x0, y1 - y0) || 1, s = Math.max(1, Math.round(L / step)), nx = -(y1 - y0) / L, ny = (x1 - x0) / L;
+    for (let j = 0; j < s; j++) {
+      const t = j / s, w = noise(seed * 7.13 + k * .31, seed * 3.7) * amp; k++;
+      const x = lerp(x0, x1, t) + nx * w, y = lerp(y0, y1, t) + ny * w;
+      if (first) { g.moveTo(x, y); first = false; } else g.lineTo(x, y);
+    }
+  }
+  if (!closed) g.lineTo(pts[n - 1][0], pts[n - 1][1]); else g.closePath();
+}
+function blobPath(g, cx, cy, rx, ry, { n = 56, amp = .03, seed = 1, rot = 0, begin = true, freq = 1.3 } = {}) {
+  if (begin) g.beginPath();
+  const cr = Math.cos(rot), sr = Math.sin(rot);
+  for (let i = 0; i <= n; i++) {
+    const a = i / n * TAU, r = 1 + amp * noise(Math.cos(a) * freq + seed * 1.7, Math.sin(a) * freq - seed * 2.3);
+    const x = Math.cos(a) * rx * r, y = Math.sin(a) * ry * r, X = cx + x * cr - y * sr, Y = cy + x * sr + y * cr;
+    i ? g.lineTo(X, Y) : g.moveTo(X, Y);
+  }
+  g.closePath();
+}
+// smooth closed/open curve through points (Catmull-Rom → Bézier)
+function curvePath(g, pts, closed = false, begin = true) {
+  const n = pts.length; if (begin) g.beginPath(); g.moveTo(pts[0][0], pts[0][1]);
+  const P = i => closed ? pts[(i + n) % n] : pts[clamp(i, 0, n - 1)];
+  const m = closed ? n : n - 1;
+  for (let i = 0; i < m; i++) {
+    const p0 = P(i - 1), p1 = P(i), p2 = P(i + 1), p3 = P(i + 2);
+    g.bezierCurveTo(p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6, p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6, p2[0], p2[1]);
+  }
+  if (closed) g.closePath();
+}
+// print-style line texture inside the current clip
+function hatch(g, x, y, w, h, { gap = 6, ang = 0, col = '#000', a = .15, lw = 1, wob = 0, seed = 1, av = .6, seg = 36 } = {}) {
+  const R = rng(seed); g.save(); g.lineWidth = lw; g.strokeStyle = col;
+  const D = Math.hypot(w, h) / 2 + 6; g.translate(x + w / 2, y + h / 2); g.rotate(ang);
+  for (let v = -D; v <= D; v += gap * (.75 + .5 * R())) {
+    g.globalAlpha = a * (1 - av + av * R()); g.beginPath();
+    for (let u = -D; u <= D + seg; u += seg) { const yy = v + (wob ? noise(u * .006 + seed, v * .04) * wob : 0); u === -D ? g.moveTo(u, yy) : g.lineTo(u, yy); }
+    g.stroke();
+  }
+  g.restore();
+}
+function stipple(g, x, y, w, h, { n = 400, col = '#fff', r0 = .7, r1 = 1.8, a = .5, seed = 2, dens = null } = {}) {
+  const R = rng(seed); g.save(); g.fillStyle = col;
+  for (let i = 0; i < n; i++) {
+    const px = x + R() * w, py = y + R() * h, q = R(), r = lerp(r0, r1, R()), al = a * (.35 + .65 * R());
+    if (dens && q > dens(px, py)) continue;
+    g.globalAlpha = al;
+    if (r < 1.3) g.fillRect(px - r, py - r, r * 2, r * 2); else { g.beginPath(); g.arc(px, py, r, 0, TAU); g.fill(); }
+  }
+  g.restore();
+}
+function withClip(g, pathFn, fn) { g.save(); pathFn(g); g.clip(); fn(g); g.restore(); }
+// the first fraction u (by length) of a polyline: for lines that draw themselves on
+function trimPath(pts, u) {
+  if (u >= 1) return pts.slice(); if (u <= 0 || pts.length < 2) return [pts[0]];
+  const L = [0]; for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const d = u * L[L.length - 1], out = [pts[0]];
+  for (let i = 1; i < pts.length; i++) { if (L[i] <= d) { out.push(pts[i]); continue; } const t = (d - L[i - 1]) / (L[i] - L[i - 1] || 1); out.push([lerp(pts[i - 1][0], pts[i][0], t), lerp(pts[i - 1][1], pts[i][1], t)]); break; }
+  return out;
+}
+
+// ── text: system font stacks; a style may embed its own @font-face (boot waits for document.fonts.ready) ──
+const FONTS = { serif: 'ui-serif, "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif', sans: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', mono: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace' };
+// draws str (wrapped to maxW, '\n' breaks lines) and returns its box; bake it inside sprite() to give it the style's material
+function drawText(g, str, x, y, { size = 64, font = FONTS.sans, weight = 600, style = '', col = '#15191b', align = 'center', base = 'middle', maxW = 0, lh = 1.15, track = 0, stroke = null, sw = 0 } = {}) {
+  g.save(); g.font = `${style} ${weight} ${size}px ${font}`; g.textAlign = align; g.textBaseline = 'middle';
+  if ('letterSpacing' in g) g.letterSpacing = `${track}px`;
+  const lines = [];
+  for (const para of String(str).split('\n')) {
+    if (!maxW) { lines.push(para); continue; }
+    let cur = ''; for (const w of para.split(' ')) { const t = cur ? cur + ' ' + w : w; if (cur && g.measureText(t).width > maxW) { lines.push(cur); cur = w; } else cur = t; } lines.push(cur);
+  }
+  const L = size * lh, h = L * lines.length, y0 = base === 'top' ? y + L / 2 : base === 'bottom' ? y - h + L / 2 : y - h / 2 + L / 2;
+  let wmax = 0;
+  lines.forEach((ln, i) => { const yy = y0 + i * L; wmax = Math.max(wmax, g.measureText(ln).width); if (stroke) { g.strokeStyle = stroke; g.lineWidth = sw; g.lineJoin = 'round'; g.strokeText(ln, x, yy); } g.fillStyle = col; g.fillText(ln, x, yy); });
+  g.restore();
+  const bx = align === 'center' ? x - wmax / 2 : align === 'right' || align === 'end' ? x - wmax : x;
+  return { x: bx, y: y0 - L / 2, w: wmax, h, lines: lines.length };
+}
+
+// ── shared textures ─────────────────────────────────────────────────────────
+// film grain: fine light+dark specks, re-laid every exposure
+const GRAIN = (() => {
+  const s = 384, c = mk(s, s), g = g2(c), id = g.createImageData(s, s), d = id.data, R = rng(99);
+  for (let i = 0; i < s * s; i++) {
+    const v = R(), k = i * 4;
+    if (v < .5) { d[k] = 8; d[k + 1] = 16; d[k + 2] = 18; d[k + 3] = (.5 - v) * 64; }
+    else { d[k] = 250; d[k + 1] = 244; d[k + 2] = 228; d[k + 3] = (v - .5) * 44; }
+  }
+  g.putImageData(id, 0, 0); return c;
+})();
+// paper fibre: soft blotches + fibres, pressed into every cut-out
+const PAPER = (() => {
+  const s = 512, c = mk(s, s), g = g2(c), id = g.createImageData(s, s), d = id.data, R = rng(7);
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    const k = (y * s + x) * 4;
+    // tileable blotch field
+    const fx = x / s * TAU, fy = y / s * TAU;
+    const v = noise(Math.cos(fx) * 2.2 + 11, Math.sin(fx) * 2.2 + Math.cos(fy) * 2.2) * .6 + noise(Math.cos(fx) * 6 + Math.sin(fy) * 6, Math.sin(fx) * 6 - 4) * .4 + (R() - .5) * .9;
+    if (v < 0) { d[k] = 10; d[k + 1] = 20; d[k + 2] = 22; d[k + 3] = Math.min(255, -v * 70); }
+    else { d[k] = 255; d[k + 1] = 248; d[k + 2] = 232; d[k + 3] = Math.min(255, v * 60); }
+  }
+  g.putImageData(id, 0, 0);
+  g.lineCap = 'round';
+  for (let i = 0; i < 260; i++) {
+    const x = R() * s, y = R() * s, a = R() * TAU, L = 6 + R() * 22;
+    g.strokeStyle = R() < .5 ? 'rgba(255,248,230,.22)' : 'rgba(10,20,22,.18)'; g.lineWidth = .6 + R() * .7;
+    g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + Math.cos(a + .5) * L * .5, y + Math.sin(a + .5) * L * .5, x + Math.cos(a) * L, y + Math.sin(a) * L); g.stroke();
+  }
+  return c;
+})();
+const PAT = (() => { const g = g2(mk(1, 1)); return { grain: g.createPattern(GRAIN, 'repeat'), paper: g.createPattern(PAPER, 'repeat') }; })();
+
+function paperize(g, k = .5) { g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-atop'; g.globalAlpha = k; g.fillStyle = PAT.paper; g.fillRect(0, 0, g.canvas.width, g.canvas.height); g.restore(); }
+
+// big printed backdrop: gradient + mottling + streaks + scratches + dust (all canvas ops, fast)
+function backdrop(w, h, o = {}) {
+  const c = mk(w, h), g = g2(c), R = rng(o.seed || 5);
+  const gr = g.createLinearGradient(0, 0, 0, h);
+  (o.grad || [[0, o.base], [1, o.base]]).forEach(([s, col]) => gr.addColorStop(s, col));
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  const noiseCanvas = (sw, sh) => { const m = mk(sw, sh), mg = g2(m), id = mg.createImageData(sw, sh); for (let i = 0; i < sw * sh; i++) { const v = R() * 255; id.data[i * 4] = id.data[i * 4 + 1] = id.data[i * 4 + 2] = v; id.data[i * 4 + 3] = 255; } mg.putImageData(id, 0, 0); return m; };
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  for (const [div, amt] of [[140, (o.mottle ?? .5) * .42], [26, (o.mottle ?? .5) * .3]]) {
+    const sw = Math.ceil(w / div) + 3, sh = Math.ceil(h / div) + 3, m = noiseCanvas(sw, sh);
+    g.save(); g.globalCompositeOperation = 'soft-light'; g.globalAlpha = amt; g.drawImage(m, 0, 0, sw, sh, -div * 1.5, -div * 1.5, sw * div, sh * div); g.restore();
+  }
+  if (o.vstreak) { // fine vertical fibres, broken along y
+    const rows = 40, m = mk(w, rows), mg = g2(m), id = mg.createImageData(w, rows);
+    for (let x = 0; x < w; x++) { let v = (R() - .5); for (let y = 0; y < rows; y++) { const q = 128 + (v + noise(x * .05, y * .6) * .35) * 255 * .5; const k = (y * w + x) * 4; id.data[k] = id.data[k + 1] = id.data[k + 2] = clamp(q, 0, 255); id.data[k + 3] = 255; } }
+    mg.putImageData(id, 0, 0); g.save(); g.globalCompositeOperation = 'soft-light'; g.globalAlpha = o.vstreak; g.drawImage(m, 0, 0, w, h); g.restore();
+  }
+  if (o.hstreak) { // horizontal print lines
+    const cols = 40, m = mk(cols, h), mg = g2(m), id = mg.createImageData(cols, h);
+    for (let y = 0; y < h; y++) { let v = (R() - .5); for (let x = 0; x < cols; x++) { const q = 128 + (v + noise(y * .05, x * .6) * .35) * 255 * .5; const k = (y * cols + x) * 4; id.data[k] = id.data[k + 1] = id.data[k + 2] = clamp(q, 0, 255); id.data[k + 3] = 255; } }
+    mg.putImageData(id, 0, 0); g.save(); g.globalCompositeOperation = 'soft-light'; g.globalAlpha = o.hstreak; g.drawImage(m, 0, 0, w, h); g.restore();
+  }
+  // scratches & scuffs
+  g.save(); g.lineCap = 'round';
+  for (let i = 0; i < (o.scratches ?? 260); i++) {
+    const x = R() * w, y = R() * h, L = 8 + R() * (o.scratchLen || 60), a = (o.scratchAng ?? PI / 2) + (R() - .5) * .5, light = R() < .6;
+    g.strokeStyle = light ? `rgba(236,230,212,${.05 + R() * .12})` : `rgba(10,26,30,${.05 + R() * .1})`; g.lineWidth = .5 + R() * 1.1;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * L, y + Math.sin(a) * L); g.stroke();
+  }
+  g.restore();
+  stipple(g, 0, 0, w, h, { n: o.dust ?? 2200, col: '#ece4cf', r0: .5, r1: 1.7, a: .22, seed: (o.seed || 5) + 3 });
+  stipple(g, 0, 0, w, h, { n: (o.dust ?? 2200) * .6, col: '#0c1c20', r0: .5, r1: 1.4, a: .2, seed: (o.seed || 5) + 4 });
+  // key light from the upper left, falloff to the corners
+  const lx = (o.light?.[0] ?? .3) * w, ly = (o.light?.[1] ?? .2) * h, rg = g.createRadialGradient(lx, ly, 0, lx, ly, Math.hypot(w, h) * .75);
+  rg.addColorStop(0, `rgba(255,246,226,${o.glow ?? .1})`); rg.addColorStop(.55, 'rgba(255,246,226,0)'); rg.addColorStop(1, `rgba(6,20,24,${o.dark ?? .28})`);
+  g.fillStyle = rg; g.fillRect(0, 0, w, h);
+  return c;
+}
+
+// ── cut-out sprites: drawn once (paper texture baked in) + a soft contact shadow ──
+function sprite(w, h, ax, ay, draw, { ss = 1, pad = 28, shadow = FORMAT.shadow, paper = FORMAT.paper } = {}) {
+  const c = mk((w + pad * 2) * ss, (h + pad * 2) * ss), g = g2(c);
+  g.setTransform(ss, 0, 0, ss, pad * ss, pad * ss); g.lineJoin = 'round'; g.lineCap = 'round'; draw(g);
+  if (paper) paperize(g, paper);
+  let s = null;
+  if (shadow) { s = mk(c.width, c.height); const sg = g2(s), off = c.width + 64; sg.shadowColor = `rgba(6,20,24,${shadow.a})`; sg.shadowBlur = shadow.blur * ss; sg.shadowOffsetX = off; sg.drawImage(c, -off, 0); }
+  return { c, s, w, h, ax, ay, pad, ss, sh: shadow };
+}
+// place a sprite: (x,y) = its anchor in world space; shadow offset stays in world space (one light)
+function put(ctx, sp, x, y, rot = 0, sc = 1, { alpha = 1, flip = false, shadow = true, sy = 1 } = {}) {
+  const k = sc / sp.ss, ox = -(sp.pad + sp.ax) * sp.ss, oy = -(sp.pad + sp.ay) * sp.ss;
+  if (sp.s && shadow) {
+    ctx.save(); ctx.translate(x + sp.sh.dx * sc, y + sp.sh.dy * sc); if (rot) ctx.rotate(rot); ctx.scale(flip ? -k : k, k * sy);
+    ctx.globalAlpha = alpha; ctx.drawImage(sp.s, ox, oy); ctx.restore();
+  }
+  ctx.save(); ctx.translate(x, y); if (rot) ctx.rotate(rot); ctx.scale(flip ? -k : k, k * sy); ctx.globalAlpha = alpha; ctx.drawImage(sp.c, ox, oy); ctx.restore();
+}
+
+// ── time and camera shortcuts that almost every shot needs ──
+const lapse = (t, a, d) => clamp((t - a) / d, 0, 1);                    // 0 → 1 while t goes from a to a + d
+const onFrame = (T, ev) => Math.round(T * FPS) === Math.round(ev * FPS); // true on the exact frame of event ev (in step)
+const popIn = u => { u = clamp(u, 0, 1); const v = u - 1; return 1 + 2.93 * v * v * v + 1.93 * v * v; }; // appearance scale: 0 → 1.12 → 1 within u ∈ [0, 1]
+// Animation principles (SKILL.md, Animation): arrive with overshoot, travel in an arc, stretch without changing area.
+const llegar = (u, s = .08) => { u = clamp(u, 0, 1); return u < .75 ? (1 + s) * eio(u / .75) : 1 + s - s * eio((u - .75) / .25); }; // 0 → 1 + s (at 75% of the time) → 1: starts soft, overshoots and comes back
+const arco = (a, b, u, h) => { const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, k = 4 * h * u * (1 - u); return [lerp(a[0], b[0], u) + k * dy / l, lerp(a[1], b[1], u) - k * dx / l]; }; // from a to b along a curve that bulges h away from straight at the middle: upward when going right; h < 0, the other side
+const estirar = k => [1 / k, k];   // [width, height] with the area intact: k > 1 stretches along the direction of motion, k < 1 squashes
+function keyframes(K, t) { // [[t, v], ...] sorted: value interpolated linearly at t
+  if (t <= K[0][0]) return K[0][1];
+  for (let i = 1; i < K.length; i++) if (t <= K[i][0]) return lerp(K[i - 1][1], K[i][1], (t - K[i - 1][0]) / (K[i][0] - K[i - 1][0]));
+  return K[K.length - 1][1];
+}
+// camera going from a = [x, y, z] to b in dur seconds: cam: camPath([1280, 720, 1], [1300, 700, 1.1], 2.5)
+const camPath = (a, b, dur, ease = eio) => st => { const u = ease(st / dur); return { x: lerp(a[0], b[0], u), y: lerp(a[1], b[1], u), z: lerp(a[2], b[2], u) }; };
+// shot on a shared set: the set lives in global time (T = t0 + st), so what is drawn in one shot carries over to the next.
+// set = { build(), reset(T0), step(T, dt), snap(), draw(ctx, cam, T, e), poke?(x, y) }; o = { name, dur, cam, energy, score?(t0) }
+function sharedShot(set, o) {
+  return {
+    ...o,
+    build() { if (!set._built) { set._built = true; set.build(); } },
+    reset() { set.reset(this.t0); },
+    step(dt, st) { set.step(this.t0 + st, dt); },
+    snap() { set.snap(); },
+    draw(ctx, st, sq, e, cam) { set.draw(ctx, cam, this.t0 + sq, e); },
+    score() { return o.score ? o.score.call(this, this.t0) : []; },
+    poke(x, y) { return set.poke ? set.poke(x, y) : false; },
+  };
+}
+
+// ── stop-motion clock helpers ───────────────────────────────────────────────
+// exposure index for boil: puppets are re-placed by hand 12× a second
+const boil = (id, e, amt = 1) => [(hash(id, e, 1) - .5) * 2.2 * amt, (hash(id, e, 2) - .5) * 2.2 * amt, (hash(id, e, 3) - .5) * .006 * amt];
+
+// ── verlet rope (wires, steam, hair) ───────────────────────────────────────
+class Rope {
+  constructor(pts, { grav = 0, damp = .985, iters = 8, slack = 1, mass = null } = {}) {
+    const n = pts.length; this.n = n;
+    this.x = new Float64Array(n); this.y = new Float64Array(n); this.px = new Float64Array(n); this.py = new Float64Array(n);
+    this.ax = new Float64Array(n); this.ay = new Float64Array(n); this.w = new Float64Array(n).fill(1); this.pin = new Uint8Array(n);
+    this.rest = new Float64Array(n - 1);
+    for (let i = 0; i < n; i++) { this.x[i] = this.px[i] = pts[i][0]; this.y[i] = this.py[i] = pts[i][1]; if (mass) this.w[i] = 1 / mass[i]; }
+    for (let i = 0; i < n - 1; i++) this.rest[i] = Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]) * slack;
+    this.grav = grav; this.damp = damp; this.iters = iters;
+    this.rx = Float64Array.from(this.x); this.ry = Float64Array.from(this.y); // exposure snapshot (what the camera sees)
+  }
+  step(dt) {
+    const { x, y, px, py, ax, ay, pin, n } = this, d2 = dt * dt, dm = this.damp;
+    for (let i = 0; i < n; i++) {
+      if (pin[i]) { px[i] = x[i]; py[i] = y[i]; ax[i] = ay[i] = 0; continue; }
+      const vx = (x[i] - px[i]) * dm, vy = (y[i] - py[i]) * dm; px[i] = x[i]; py[i] = y[i];
+      x[i] += vx + ax[i] * d2; y[i] += vy + (ay[i] + this.grav) * d2; ax[i] = ay[i] = 0;
+    }
+    for (let k = 0; k < this.iters; k++) for (let i = 0; i < n - 1; i++) {
+      const j = i + 1, wi = pin[i] ? 0 : this.w[i], wj = pin[j] ? 0 : this.w[j], ws = wi + wj; if (!ws) continue;
+      const dx = x[j] - x[i], dy = y[j] - y[i], d = Math.hypot(dx, dy) || 1e-6, diff = (d - this.rest[i]) / (d * ws);
+      x[i] += dx * diff * wi; y[i] += dy * diff * wi; x[j] -= dx * diff * wj; y[j] -= dy * diff * wj;
+    }
+  }
+  snap() { this.rx.set(this.x); this.ry.set(this.y); }
+  // point along the rope at arc fraction u (from the snapshot)
+  at(u, live = false) { const X = live ? this.x : this.rx, Y = live ? this.y : this.ry, f = clamp(u, 0, 1) * (this.n - 1), i = Math.min(this.n - 2, Math.floor(f)), t = f - i; return [lerp(X[i], X[i + 1], t), lerp(Y[i], Y[i + 1], t), Math.atan2(Y[i + 1] - Y[i], X[i + 1] - X[i])]; }
+}
+
+// ── falling-petal aerodynamics ─────────────────────────────────────────────
+// Quasi-steady flat plate: orientation-dependent drag makes a tilted petal glide, lift acts ⟂ to the
+// relative wind, and a self-excited pitch oscillator keeps it fluttering (tuned offline: ±28 px sway,
+// ~210 px/s descent — cherry-blossom speeds at this scale).
+function petalStep(p, dt, wx, wy) {
+  const ux = p.vx - wx, uy = p.vy - wy, c = Math.cos(p.th), s = Math.sin(p.th);
+  const vt = ux * c + uy * s, vn = -ux * s + uy * c, V = Math.hypot(ux, uy) + 1e-6;
+  const An = p.An, At = An * .05, fdt = -At * vt * V, fdn = -An * vn * V, L = 2.5 * An * vt * vn / V;
+  const ax = fdt * c - fdn * s - L * uy, ay = fdt * s + fdn * c + L * ux + 1500;
+  const tau = -p.w0 * p.w0 * Math.sin(p.th) + 3 * (1 - (p.th / p.A) ** 2) * p.om - .001 * vt * vn;
+  p.om = clamp(p.om + tau * dt, -30, 30); p.th += p.om * dt; p.vx += ax * dt; p.vy += ay * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+  p.phi += (2 + Math.abs(p.om) * .8) * dt * p.spin;
+}
+function newPetal(R, x, y, o = {}) {
+  return { x, y, vx: o.vx ?? (R() - .5) * 80, vy: o.vy ?? (R() - .3) * 60, th: (R() - .5) * 1.2, om: (R() - .5) * 4, phi: R() * TAU, spin: (R() < .5 ? -1 : 1) * (.6 + R()),
+    An: (o.An ?? .03) * (.8 + R() * .5), w0: 4.5 * (.8 + R() * .45), A: .8 + R() * .35, size: o.size ?? (11 + R() * 9), col: o.col ?? C.coral, landed: false, rx: x, ry: y, rth: 0, rphi: 0, id: (R() * 1e6) | 0, life: 0 };
+}
+function addPetal(path, p, e, ymul = 1) {
+  const flat = (.25 + .75 * Math.abs(Math.cos(p.rphi))) * ymul, s = p.size, bo = e < 0 ? [0, 0] : boil(p.id, e, .6), a = p.rth + (p.id % 7) * .4, c = Math.cos(a), si = Math.sin(a), X = p.rx + bo[0], Y = p.ry + bo[1];
+  const T = (x, y) => [X + x * c - y * flat * si, Y + x * si + y * flat * c];
+  const P0 = T(-s, 0), c1 = T(-s * .4, -s * .75), c2 = T(s * .5, -s * .6), P1 = T(s, 0), c3 = T(s * .5, s * .55), c4 = T(-s * .4, s * .7);
+  path.moveTo(P0[0], P0[1]); path.bezierCurveTo(c1[0], c1[1], c2[0], c2[1], P1[0], P1[1]); path.bezierCurveTo(c3[0], c3[1], c4[0], c4[1], P0[0], P0[1]); path.closePath();
+}
+function drawPetals(ctx, list, e, { ymul = 1, rim = 'rgba(96,24,22,.55)' } = {}) {
+  const by = new Map();
+  for (const p of list) { let path = by.get(p.col); if (!path) by.set(p.col, path = new Path2D()); addPetal(path, p, e, ymul); }
+  ctx.lineWidth = 1.4; ctx.strokeStyle = rim;
+  for (const [col, path] of by) { ctx.fillStyle = col; ctx.fill(path); ctx.stroke(path); }
+}
+// ── sound: every tone and noise is synthesised; the same score drives live play and the offline mix ──
+const NOTE = n => { const m = /^([A-G])(#|b)?(\d)$/.exec(n); const i = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0); return 440 * Math.pow(2, (12 * (+m[3] + 1) + i - 69) / 12); };
+
+class Sound {
+  constructor(ctx, dest) {
+    this.ctx = ctx; const sr = ctx.sampleRate;
+    this.master = ctx.createGain(); this.master.gain.value = .92;
+    const sh = ctx.createWaveShaper(), cv = new Float32Array(2048); for (let i = 0; i < 2048; i++) { const x = i / 1023.5 - 1; cv[i] = Math.tanh(x * 1.25) / Math.tanh(1.25); } sh.curve = cv;
+    this.master.connect(sh); sh.connect(dest || ctx.destination);
+    this.verb = ctx.createConvolver(); this.verb.buffer = this.ir(2.3); const vo = ctx.createGain(); vo.gain.value = .55; this.verb.connect(vo); vo.connect(this.master);
+    const R = rng(4242), mono = (secs, fn) => { const b = ctx.createBuffer(1, Math.round(sr * secs), sr), d = b.getChannelData(0); fn(d, R); return b; };
+    this.white = mono(3, (d, R) => { for (let i = 0; i < d.length; i++) d[i] = R() * 2 - 1; });
+    this.pink = mono(4, (d, R) => { let b0 = 0, b1 = 0, b2 = 0; for (let i = 0; i < d.length; i++) { const w = R() * 2 - 1; b0 = .99765 * b0 + w * .099; b1 = .963 * b1 + w * .2965; b2 = .57 * b2 + w * 1.0527; d[i] = (b0 + b1 + b2 + w * .1848) * .2; } });
+    this.brown = mono(4, (d, R) => { let v = 0; for (let i = 0; i < d.length; i++) { v = (v + .02 * (R() * 2 - 1)) / 1.02; d[i] = v * 3.2; } });
+    this.bus = this.master; this.vbus = this.verb;
+  }
+  ir(dur) {
+    const c = this.ctx, sr = c.sampleRate, len = Math.round(sr * dur), b = c.createBuffer(2, len, sr), R = rng(31);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = b.getChannelData(ch); let lp = 0;
+      for (let i = 0; i < len; i++) { const t = i / sr; lp = lp * .55 + (R() * 2 - 1) * .45; d[i] = t < .011 ? 0 : lp * Math.exp(-t * 3.1) * .5; }
+      for (let k = 0; k < 7; k++) { const at = Math.round(sr * (.013 + R() * .06)); if (at < len) d[at] += (R() - .5) * .6; }
+    }
+    return b;
+  }
+  out(pan = 0, wet = .25) {
+    const c = this.ctx, g = c.createGain(), p = c.createStereoPanner(); p.pan.value = clamp(pan, -1, 1);
+    g.connect(p); p.connect(this.bus);
+    if (wet > 0) { const s = c.createGain(); s.gain.value = wet; g.connect(s); s.connect(this.vbus); }
+    return g;
+  }
+  env(g, t, a, peak, tau) { g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(peak, t + a); g.gain.setTargetAtTime(0, t + a, tau); }
+  noiseSrc(buf, t, dur, off = 0) { const s = this.ctx.createBufferSource(); s.buffer = buf; s.loop = true; s.start(t, off % buf.duration); s.stop(t + dur); return s; }
+  filt(type, f, q = .7) { const b = this.ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; return b; }
+
+  musicBox(t, f, v = 1, pan = 0) {
+    const c = this.ctx, o = this.out(pan, .38);
+    for (const [r, a, tau] of [[1, 1, .95], [1.0032, .32, .75], [2, .1, .3], [3.01, .05, .12], [6.27, .07, .045]]) {
+      const os = c.createOscillator(), eg = c.createGain(); os.frequency.value = f * r; this.env(eg, t, .0025, a * v * .15, tau);
+      os.connect(eg); eg.connect(o); os.start(t); os.stop(t + tau * 7 + .05);
+    }
+    const hp = this.filt('highpass', 2600), ng = c.createGain(); this.env(ng, t, .001, v * .05, .004);
+    this.noiseSrc(this.white, t, .03, f % 1.3).connect(hp); hp.connect(ng); ng.connect(o);
+  }
+  // Karplus–Strong string (the telephone wire), with the tension settling after the pluck
+  pluck(t, f, dur = 2, v = 1, pan = 0, seed = 1) {
+    const c = this.ctx, sr = c.sampleRate, R = rng(seed), mk1 = (freq, decay, bright) => {
+      const N = Math.max(2, Math.round(sr / freq)), len = Math.round(sr * dur), b = c.createBuffer(1, len, sr), d = b.getChannelData(0), ring = new Float32Array(N);
+      let lp = 0; for (let i = 0; i < N; i++) { lp = lp * (1 - bright) + (R() * 2 - 1) * bright; ring[i] = lp; }
+      let idx = 0, peak = 0; for (let i = 0; i < len; i++) { const a = ring[idx], nb = ring[(idx + 1) % N]; ring[idx] = (a + nb) * .5 * decay; d[i] = a; peak = Math.max(peak, Math.abs(a)); idx = (idx + 1) % N; }
+      for (let i = 0; i < len; i++) d[i] /= peak || 1; return b;
+    };
+    const o = this.out(pan, .3);
+    for (const [freq, decay, bright, amp] of [[f, .997, .8, .42], [f * 4.03, .985, .95, .12]]) {
+      const s = c.createBufferSource(); s.buffer = mk1(freq, decay, bright); s.playbackRate.setValueAtTime(1.045, t); s.playbackRate.exponentialRampToValueAtTime(1, t + .35);
+      const g = c.createGain(); g.gain.setValueAtTime(amp * v, t); g.gain.setTargetAtTime(0, t + dur * .55, dur * .12); s.connect(g); g.connect(o); s.start(t); s.stop(t + dur);
+    }
+  }
+  flap(t, pan = 0, v = 1, n = 3, seed = 1) {
+    const R = rng(seed), o = this.out(pan, .12); let tt = t;
+    for (let i = 0; i < n; i++) {
+      const bp = this.filt('bandpass', 650 + R() * 600, .8), g = this.ctx.createGain(); this.env(g, tt, .007, v * (.34 - i * .05), .038);
+      this.noiseSrc(this.white, tt, .2, R() * 2).connect(bp); bp.connect(g); g.connect(o);
+      const lp = this.filt('lowpass', 260), g2 = this.ctx.createGain(); this.env(g2, tt, .005, v * .22, .03);
+      this.noiseSrc(this.brown, tt, .15, R() * 2).connect(lp); lp.connect(g2); g2.connect(o);
+      tt += .07 + R() * .03 + i * .012;
+    }
+  }
+  chirp(t, pan = 0, f0 = 3400, n = 2, v = 1, seed = 1) {
+    const c = this.ctx, R = rng(seed), o = this.out(pan, .3); let tt = t;
+    for (let i = 0; i < n; i++) {
+      const f = f0 * (.92 + R() * .2), os = c.createOscillator(), g = c.createGain(), fm = c.createOscillator(), fg = c.createGain();
+      os.frequency.setValueAtTime(f * .82, tt); os.frequency.exponentialRampToValueAtTime(f * 1.28, tt + .03); os.frequency.exponentialRampToValueAtTime(f * .95, tt + .07);
+      fm.frequency.value = 38 + R() * 20; fg.gain.value = f * .05; fm.connect(fg); fg.connect(os.frequency);
+      g.gain.setValueAtTime(0, tt); g.gain.linearRampToValueAtTime(v * .07, tt + .006); g.gain.linearRampToValueAtTime(v * .05, tt + .045); g.gain.linearRampToValueAtTime(0, tt + .08);
+      os.connect(g); g.connect(o); os.start(tt); fm.start(tt); os.stop(tt + .1); fm.stop(tt + .1);
+      tt += .085 + R() * .04;
+    }
+  }
+  whoosh(t, dur, p0 = -.6, p1 = .6, f0 = 300, f1 = 1400, v = 1) {
+    const c = this.ctx, g = c.createGain(), p = c.createStereoPanner(), bp = this.filt('bandpass', f0, 1.1);
+    bp.frequency.setValueAtTime(f0, t); bp.frequency.exponentialRampToValueAtTime(f1, t + dur * .6); bp.frequency.exponentialRampToValueAtTime(f0 * 1.2, t + dur);
+    p.pan.setValueAtTime(p0, t); p.pan.linearRampToValueAtTime(p1, t + dur);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v * .2, t + dur * .55); g.gain.linearRampToValueAtTime(0, t + dur);
+    this.noiseSrc(this.pink, t, dur + .05, t * 1.7).connect(bp); bp.connect(g); g.connect(p); p.connect(this.bus);
+    const s = c.createGain(); s.gain.value = .2; g.connect(s); s.connect(this.vbus);
+  }
+  // paper rustle: sparse crackle grains, band-limited
+  rustle(t, dur, v = 1, pan = 0, dens = 900, seed = 1) {
+    const c = this.ctx, sr = c.sampleRate, len = Math.round(sr * dur), b = c.createBuffer(1, len, sr), d = b.getChannelData(0), R = rng(seed);
+    let e = 0; for (let i = 0; i < len; i++) { if (R() < dens / sr) e = (R() * .8 + .2) * (R() < .5 ? -1 : 1); d[i] = e * (R() * 2 - 1); e *= .93; }
+    const s = c.createBufferSource(); s.buffer = b; const hp = this.filt('highpass', 1700), g = c.createGain(), o = this.out(pan, .2);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v * .5, t + dur * .15); g.gain.setTargetAtTime(0, t + dur * .35, dur * .22);
+    s.connect(hp); hp.connect(g); g.connect(o); s.start(t);
+  }
+  tick(t, v = 1, pan = 0) { const hp = this.filt('bandpass', 4200, 1.5), g = this.ctx.createGain(); this.env(g, t, .0008, v * .12, .006); this.noiseSrc(this.white, t, .04, t * 3.1).connect(hp); hp.connect(g); g.connect(this.out(pan, .15)); }
+  thump(t, v = 1, pan = 0) {
+    const c = this.ctx, os = c.createOscillator(), g = c.createGain(), o = this.out(pan, .12);
+    os.frequency.setValueAtTime(200, t); os.frequency.exponentialRampToValueAtTime(70, t + .06); this.env(g, t, .002, v * .3, .03); os.connect(g); g.connect(o); os.start(t); os.stop(t + .25);
+    const lp = this.filt('lowpass', 1800), g2 = c.createGain(); this.env(g2, t, .001, v * .12, .008); this.noiseSrc(this.white, t, .05, t).connect(lp); lp.connect(g2); g2.connect(o);
+  }
+  creak(t, v = 1, pan = 0) {
+    const c = this.ctx, os = c.createOscillator(), lfo = c.createOscillator(), lg = c.createGain(), bp = this.filt('bandpass', 720, 5), g = c.createGain();
+    os.type = 'sawtooth'; os.frequency.setValueAtTime(128, t); os.frequency.linearRampToValueAtTime(96, t + .38); lfo.frequency.value = 22; lg.gain.value = 9; lfo.connect(lg); lg.connect(os.frequency);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v * .09, t + .05); g.gain.linearRampToValueAtTime(v * .05, t + .25); g.gain.linearRampToValueAtTime(0, t + .4);
+    os.connect(bp); bp.connect(g); g.connect(this.out(pan, .3)); os.start(t); lfo.start(t); os.stop(t + .45); lfo.stop(t + .45);
+  }
+  bloom(t, v = 1, pan = 0) {
+    const c = this.ctx, os = c.createOscillator(), g = c.createGain();
+    os.frequency.setValueAtTime(620, t); os.frequency.exponentialRampToValueAtTime(1180, t + .035); this.env(g, t, .004, v * .045, .03);
+    os.connect(g); g.connect(this.out(pan, .3)); os.start(t); os.stop(t + .2);
+  }
+  cloth(t, v = 1, pan = 0) { const bp = this.filt('bandpass', 1900, .6), g = this.ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v * .05, t + .1); g.gain.linearRampToValueAtTime(0, t + .3); this.noiseSrc(this.pink, t, .32, t * 2).connect(bp); bp.connect(g); g.connect(this.out(pan, .15)); }
+  clink(t, v = 1, pan = 0) { // ceramic tap
+    const c = this.ctx, o = this.out(pan, .3);
+    for (const [f, a, tau] of [[2350, .5, .09], [3710, .3, .05], [5480, .2, .03], [1180, .25, .06]]) { const os = c.createOscillator(), g = c.createGain(); os.frequency.value = f; this.env(g, t, .001, a * v * .12, tau); os.connect(g); g.connect(o); os.start(t); os.stop(t + .4); }
+  }
+  // a recorded narration clip, dry and centred, starting `off` seconds into the clip
+  voice(t, buf, v = 1, off = 0) {
+    if (!buf || off >= buf.duration) return;
+    const c = this.ctx, s = c.createBufferSource(), g = c.createGain(); s.buffer = buf; g.gain.value = v;
+    s.connect(g); g.connect(this.bus); const w = c.createGain(); w.gain.value = .06; g.connect(w); w.connect(this.vbus); s.start(t, off);
+  }
+  // ── more voices: soft synth pluck, sub bass, pop, click, marimba, chalk, blip, piano, strings ──
+  synth(t, f, v = 1, pan = 0, dur = .5, bright = 1) {
+    const c = this.ctx, o = this.out(pan, .25), lp = this.filt('lowpass', 900 * bright, 2), g = c.createGain();
+    lp.frequency.setValueAtTime(4200 * bright, t); lp.frequency.exponentialRampToValueAtTime(700, t + dur * .6);
+    this.env(g, t, .006, v * .09, dur * .35); lp.connect(g); g.connect(o);
+    for (const [r, type] of [[1, 'sawtooth'], [1.006, 'triangle'], [.5, 'sine']]) { const os = c.createOscillator(); os.type = type; os.frequency.value = f * r; os.connect(lp); os.start(t); os.stop(t + dur * 2.5); }
+  }
+  bass(t, f, v = 1, pan = 0, dur = .45) {
+    const c = this.ctx, o = this.out(pan, .05), g = c.createGain(), os = c.createOscillator(), o2 = c.createOscillator(), g2 = c.createGain();
+    os.frequency.value = f; o2.type = 'triangle'; o2.frequency.value = f * 2; g2.gain.value = .25; o2.connect(g2); g2.connect(g);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v * .32, t + .012); g.gain.setTargetAtTime(0, t + dur * .6, dur * .25);
+    os.connect(g); g.connect(o); os.start(t); o2.start(t); os.stop(t + dur * 2); o2.stop(t + dur * 2);
+  }
+  pop(t, v = 1, pan = 0, f = 900) {
+    const c = this.ctx, os = c.createOscillator(), g = c.createGain();
+    os.frequency.setValueAtTime(f, t); os.frequency.exponentialRampToValueAtTime(f * .35, t + .07); this.env(g, t, .002, v * .16, .035);
+    os.connect(g); g.connect(this.out(pan, .15)); os.start(t); os.stop(t + .25);
+  }
+  click(t, v = 1, pan = 0) {
+    const c = this.ctx, os = c.createOscillator(), g = c.createGain(), o = this.out(pan, .08); os.type = 'square'; os.frequency.value = 2200; this.env(g, t, .0005, v * .05, .004); os.connect(g); g.connect(o); os.start(t); os.stop(t + .05);
+    const hp = this.filt('highpass', 6000), g2 = c.createGain(); this.env(g2, t, .0005, v * .1, .003); this.noiseSrc(this.white, t, .03, t * 5).connect(hp); hp.connect(g2); g2.connect(o);
+  }
+  marimba(t, f, v = 1, pan = 0) {
+    const c = this.ctx, o = this.out(pan, .3);
+    for (const [r, a, tau] of [[1, 1, .42], [3.93, .35, .09], [9.2, .12, .03]]) { const os = c.createOscillator(), g = c.createGain(); os.frequency.value = f * r; this.env(g, t, .002, a * v * .2, tau); os.connect(g); g.connect(o); os.start(t); os.stop(t + tau * 8 + .05); }
+    const bp = this.filt('bandpass', f * 2, 1.5), g = c.createGain(); this.env(g, t, .001, v * .06, .01); this.noiseSrc(this.white, t, .04, f % 2).connect(bp); bp.connect(g); g.connect(o);
+  }
+  chalk(t, dur = .5, v = 1, pan = 0, seed = 1) { // stick-slip scratching: noise grains through a squeaky band
+    const c = this.ctx, sr = c.sampleRate, len = Math.max(1, Math.round(sr * dur)), b = c.createBuffer(1, len, sr), d = b.getChannelData(0), R = rng(seed);
+    let ph = 0, rate = 38 + R() * 30; for (let i = 0; i < len; i++) { ph += rate / sr; if (ph > 1) { ph -= 1; rate = 30 + R() * 45; } const env = Math.pow(1 - ph, 6) * (.6 + .4 * R()); d[i] = (R() * 2 - 1) * env; }
+    const s = c.createBufferSource(); s.buffer = b; const bp = this.filt('bandpass', 3200 + R() * 900, 1.2), hp = this.filt('highpass', 1200), g = c.createGain();
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v * .5, t + .02); g.gain.setValueAtTime(v * .5, t + dur - .04); g.gain.linearRampToValueAtTime(0, t + dur);
+    s.connect(bp); bp.connect(hp); hp.connect(g); g.connect(this.out(pan, .15)); s.start(t);
+  }
+  blip(t, f, v = 1, pan = 0, dur = .09) {
+    const c = this.ctx, os = c.createOscillator(), lp = this.filt('lowpass', f * 3, 1), g = c.createGain(); os.type = 'square'; os.frequency.value = f;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v * .16, t + .004); g.gain.setValueAtTime(v * .16, t + dur); g.gain.linearRampToValueAtTime(0, t + dur + .03);
+    os.connect(lp); lp.connect(g); g.connect(this.out(pan, .3)); os.start(t); os.stop(t + dur + .06);
+  }
+  piano(t, f, v = 1, pan = 0) {
+    const c = this.ctx, o = this.out(pan, .4);
+    for (let n = 1; n <= 7; n++) { const r = n * Math.sqrt(1 + .0004 * n * n), os = c.createOscillator(), g = c.createGain(); os.frequency.value = f * r; this.env(g, t, .003, v * .12 / Math.pow(n, 1.4), 1.6 / Math.sqrt(n) * (440 / Math.max(f, 110)) ** .3); os.connect(g); g.connect(o); os.start(t); os.stop(t + 6); }
+    const lp = this.filt('lowpass', 2400), g = c.createGain(); this.env(g, t, .001, v * .05, .012); this.noiseSrc(this.pink, t, .06, f % 3).connect(lp); lp.connect(g); g.connect(o);
+  }
+  strings(t, f, dur = 2, v = 1, pan = 0) {
+    const c = this.ctx, o = this.out(pan, .5), lp = this.filt('lowpass', 1600, .5), g = c.createGain();
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v * .05, t + Math.min(.5, dur * .3)); g.gain.setValueAtTime(v * .05, t + dur); g.gain.linearRampToValueAtTime(0, t + dur + .6);
+    lp.connect(g); g.connect(o);
+    for (const r of [1, 1.004, .996, 2.002]) { const os = c.createOscillator(), vib = c.createOscillator(), vg = c.createGain(); os.type = 'sawtooth'; os.frequency.value = f * r; vib.frequency.value = 5 + r; vg.gain.value = f * .004; vib.connect(vg); vg.connect(os.frequency); os.connect(lp); os.start(t); vib.start(t); os.stop(t + dur + .7); vib.stop(t + dur + .7); }
+  }
+  // ── chiptune: pulse/square/triangle channels and a noise channel, like an 8-bit console ──
+  chip(t, f, v = 1, pan = 0, dur = .2, wave = 'square') {
+    const c = this.ctx, os = c.createOscillator(), g = c.createGain(), lp = this.filt('lowpass', 5200, .5), o = this.out(pan, .12);
+    if (wave === 'pulse') { const n = 32, re = new Float32Array(n), im = new Float32Array(n); for (let k = 1; k < n; k++) im[k] = 2 / (k * PI) * Math.sin(k * PI * .25); os.setPeriodicWave(c.createPeriodicWave(re, im)); } else os.type = wave;
+    os.frequency.value = f; const a = v * (wave === 'triangle' ? .42 : .12), end = t + Math.max(.04, dur);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(a, t + .004); g.gain.setValueAtTime(a * .8, t + Math.max(.02, dur * .5)); g.gain.linearRampToValueAtTime(0, end);
+    os.connect(lp); lp.connect(g); g.connect(o); os.start(t); os.stop(end + .02);
+  }
+  noise(t, v = 1, pan = 0, dur = .05, f = 7000) {
+    const c = this.ctx, hp = this.filt('highpass', f, .7), g = c.createGain(); g.gain.setValueAtTime(v * .22, t); g.gain.exponentialRampToValueAtTime(.001, t + Math.max(.02, dur));
+    this.noiseSrc(this.white, t, dur + .02, t * 7).connect(hp); hp.connect(g); g.connect(this.out(pan, .05));
+  }
+  // continuous room / street / field tone for one shot (cross-faded at the cuts)
+  bed(t, dur, kind, off = 0) {
+    const c = this.ctx, g = c.createGain(), end = t + dur, lvl = { room: .5, street: .55, field: .6, stage: .42, studio: .35, lab: .4, soft: .45 }[kind];
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(lvl, t + .05); g.gain.setValueAtTime(lvl, end - .05); g.gain.linearRampToValueAtTime(0, end + .03); g.connect(this.bus);
+    const layer = (buf, type, f, q, amp, o2 = 0) => { const fl = this.filt(type, f, q), a = c.createGain(); a.gain.value = amp; this.noiseSrc(buf, t, dur + .06, off + o2).connect(fl); fl.connect(a); a.connect(g); return { fl, a }; };
+    if (kind === 'room') { layer(this.brown, 'lowpass', 320, .5, .16); const h = layer(this.white, 'highpass', 5200, .5, .012, 1); h.a.gain.setValueAtTime(.006, t); h.a.gain.linearRampToValueAtTime(.016, t + dur * .5); h.a.gain.linearRampToValueAtTime(.008, end); }
+    if (kind === 'street') { layer(this.pink, 'bandpass', 420, .45, .085); layer(this.brown, 'lowpass', 110, .6, .22, 2); }
+    if (kind === 'field') { const w = layer(this.pink, 'bandpass', 380, .8, .12); w.fl.frequency.setValueAtTime(330, t); w.fl.frequency.linearRampToValueAtTime(760, t + dur * .55); w.fl.frequency.linearRampToValueAtTime(420, end); layer(this.white, 'highpass', 3400, .5, .008, 1); }
+    if (kind === 'stage') { layer(this.brown, 'lowpass', 260, .5, .13); layer(this.pink, 'bandpass', 900, .4, .012, 2); }
+    if (kind === 'studio') { layer(this.pink, 'lowpass', 500, .5, .04); }
+    if (kind === 'lab') { layer(this.brown, 'lowpass', 180, .5, .08); for (const [f, a] of [[60, .05], [120, .025], [180, .012]]) { const os = c.createOscillator(), og = c.createGain(); os.frequency.value = f; og.gain.value = a; os.connect(og); og.connect(g); os.start(t); os.stop(end + .1); } layer(this.white, 'highpass', 7000, .5, .006, 1); }
+    if (kind === 'soft') { layer(this.pink, 'lowpass', 700, .4, .07); layer(this.brown, 'lowpass', 200, .5, .08, 2); }
+  }
+  play(e, t, off = 0) {
+    const R = rng((e.t * 1000) | 0);
+    switch (e.k) {
+      case 'mb': this.musicBox(t, NOTE(e.n), e.v ?? 1, e.pan ?? 0); break;
+      case 'chord': e.ns.forEach((n, i) => this.musicBox(t + i * (e.strum ?? .028), NOTE(n), (e.v ?? .8) * (1 - i * .08), (e.pan ?? 0) + (i - 1.5) * .12)); break;
+      case 'pluck': this.pluck(t, e.f, e.dur ?? 2.2, e.v ?? 1, e.pan ?? 0, (e.t * 100) | 0); break;
+      case 'flap': this.flap(t, e.pan ?? 0, e.v ?? 1, e.n ?? 3, (e.t * 1000) | 0); break;
+      case 'chirp': this.chirp(t, e.pan ?? 0, e.f ?? 3400, e.n ?? 2, e.v ?? 1, (e.t * 1000) | 0); break;
+      case 'whoosh': this.whoosh(t, e.dur, e.p0, e.p1, e.f0, e.f1, e.v ?? 1); break;
+      case 'rustle': this.rustle(t, e.dur ?? .4, e.v ?? 1, e.pan ?? 0, e.dens ?? 900, (e.t * 1000) | 0); break;
+      case 'tick': this.tick(t, e.v ?? 1, e.pan ?? 0); break;
+      case 'thump': this.thump(t, e.v ?? 1, e.pan ?? 0); break;
+      case 'creak': this.creak(t, e.v ?? 1, e.pan ?? 0); break;
+      case 'bloom': this.bloom(t, e.v ?? 1, e.pan ?? 0); break;
+      case 'cloth': this.cloth(t, e.v ?? 1, e.pan ?? 0); break;
+      case 'clink': this.clink(t, e.v ?? 1, e.pan ?? 0); break;
+      case 'bed': this.bed(t, e.dur - off, e.kind, off); break;
+      case 'voice': this.voice(t, e.buf, e.v ?? 1, off); break;
+      case 'chip': this.chip(t, e.f ?? NOTE(e.n), e.v ?? 1, e.pan ?? 0, e.dur ?? .2, e.wave ?? 'pulse'); break;
+      case 'chipbass': this.chip(t, e.f ?? NOTE(e.n), e.v ?? 1, e.pan ?? 0, e.dur ?? .3, 'triangle'); break;
+      case 'noise': this.noise(t, e.v ?? 1, e.pan ?? 0, Math.min(e.dur ?? .05, .12), e.hz ?? 7000); break;
+      case 'synth': this.synth(t, e.f ?? NOTE(e.n), e.v ?? 1, e.pan ?? 0, e.dur ?? .5, e.bright ?? 1); break;
+      case 'bass': this.bass(t, e.f ?? NOTE(e.n), e.v ?? 1, e.pan ?? 0, e.dur ?? .45); break;
+      case 'pop': this.pop(t, e.v ?? 1, e.pan ?? 0, e.f ?? 900); break;
+      case 'click': this.click(t, e.v ?? 1, e.pan ?? 0); break;
+      case 'marimba': this.marimba(t, e.f ?? NOTE(e.n), e.v ?? 1, e.pan ?? 0); break;
+      case 'chalk': this.chalk(t, e.dur ?? .5, e.v ?? 1, e.pan ?? 0, (e.t * 1000) | 0); break;
+      case 'blip': this.blip(t, e.f ?? NOTE(e.n), e.v ?? 1, e.pan ?? 0, e.dur ?? .09); break;
+      case 'piano': this.piano(t, e.f ?? NOTE(e.n), e.v ?? 1, e.pan ?? 0); break;
+      case 'strings': (e.ns || [e.n]).forEach((n, i) => this.strings(t, NOTE(n), e.dur ?? 2, (e.v ?? 1) * (1 - i * .1), (e.pan ?? 0) + (i - 1) * .2)); break;
+    }
+  }
+}
+
+// ── composer: background music for the whole video, generated in code from a MUSIC ──
+// MUSIC = { bpm, key, mode, prog, inst: { pad, bass, keys, lead, perc }, seed, v, tail }
+// Each shot's energy (shot.energy, 0–1, default .5) decides which layers play; see ENGINE.md.
+const PCN = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const midiName = m => PCN[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
+const SCALES = { major: [0, 2, 4, 5, 7, 9, 11], minor: [0, 2, 3, 5, 7, 8, 10] };
+function musicFrame(M) {
+  const beat = 60 / (M.bpm || 96), bar = beat * 4, sc = SCALES[M.mode || 'major'], root = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[M.key[0]] + (M.key[1] === '#' ? 1 : M.key[1] === 'b' ? -1 : 0);
+  const prog = M.prog || [1, 6, 4, 5], tail = M.tail ?? 2.2, fin = Math.max(bar, Math.floor((DUR - tail) / beat) * beat);
+  const deg = d => { const i = d - 1, pcs = [0, 2, 4].map(k => root + sc[(i + k) % 7] + 12 * Math.floor((i + k) / 7)); if ((M.mode || 'major') === 'minor' && d === 5) pcs[1] += 1; return pcs; }; // in minor, major V
+  const degAt = t => t >= fin ? 1 : t >= fin - bar / 2 ? 5 : prog[Math.floor(t / bar + 1e-6) % prog.length];
+  const inRange = (pc, lo) => { let m = lo + ((pc - lo) % 12 + 12) % 12; return m; }; // the first pitch >= lo in that pitch class
+  const scaleNotes = []; for (let m = 24; m < 108; m++) if (sc.includes(((m - root) % 12 + 12) % 12)) scaleNotes.push(m);
+  return { beat, bar, fin, tail, deg, degAt, inRange, scaleNotes };
+}
+// notes of the chord sounding at second t (so a shot's accents stay in tune): chordAt(MUSIC, t) → ['C5', 'E5', 'G5']
+function chordAt(M, t, oct = 5) { const F = musicFrame(M); return F.deg(F.degAt(t)).map(pc => midiName(F.inRange(pc, 12 * (oct + 1)))).sort((a, b) => NOTE(a) - NOTE(b)); }
+function compose(M) {
+  const F = musicFrame(M), { beat, bar, fin } = F, I = M.inst || {}, V = M.v ?? 1, R = rng(M.seed || 7), ev = [];
+  const energyAt = t => { let e = .5; for (const s of SHOTS) if (t >= s.t0 - 1e-6) e = s.energy ?? .5; return e; };
+  const voiced = VOICE.filter(c => c.buf).map(c => [c.t - .15, c.t + c.buf.duration + .15]);
+  const duck = t => voiced.some(([a, b]) => t >= a && t < b) ? .45 : 1;
+  const LVL = { pad: .26, bass: .12, keys: .43, lead: .41, perc: .32 }; // layers balanced against each other (the melody a bit higher); the total sits ~4 dB above the ambience and the chalk, which sound in the highs
+  const hit = (layer, t, n, v, dur) => {
+    const inst = I[layer]; if (!inst) return; v *= V * LVL[layer] * duck(t);
+    if (inst === 'strings') ev.push({ t, k: 'strings', ns: [].concat(n), dur, v });
+    else if (inst === 'pluck') [].concat(n).forEach(x => ev.push({ t, k: 'pluck', f: NOTE(x), dur: Math.max(1, dur), v: v * .8 }));
+    else [].concat(n).forEach((x, i) => ev.push({ t: t + i * .03, k: inst, n: x, dur, v }));
+  };
+  // the melody: one rhythm per 4-bar phrase, reused; the pitches follow the chord, so the phrase is recognizable and stays in tune
+  const rhythms = [[0, 1, 1.5, 2, 3], [0, .5, 1, 2, 3.5], [0, 1, 2, 2.5, 3], [0, 1.5, 2, 3]];
+  let phraseRhythm = null, last = null, prevPad = null;
+  for (let b = 0; b * bar < fin - 1e-6; b++) {
+    const T = b * bar, e = energyAt(T + .01), d = F.degAt(T), pcs = F.deg(d);
+    // pad: sustained chord near G3–G4, with the shortest voice leading to the previous one
+    let pad = pcs.map(pc => F.inRange(pc, 55)).sort((a, b) => a - b);
+    if (prevPad) { const alt = [pad, [pad[1], pad[2], pad[0] + 12], [pad[2] - 12, pad[0], pad[1]]]; pad = alt.sort((x, y) => x.reduce((s, m, i) => s + Math.abs(m - prevPad[i]), 0) - y.reduce((s, m, i) => s + Math.abs(m - prevPad[i]), 0))[0]; }
+    prevPad = pad;
+    const barEnd = Math.min(bar, fin - T);
+    for (let h = 0; h < 2 && T + h * bar / 2 < fin - 1e-6; h++) { // the cadence's V can enter mid-bar
+      const t = T + h * bar / 2, dd = F.degAt(t); if (h === 1 && dd === d) continue;
+      const pp = h ? F.deg(dd).map(pc => F.inRange(pc, 55)).sort((a, b) => a - b) : pad, len = h ? Math.min(bar / 2, fin - t) : (F.degAt(T + bar / 2) !== d ? bar / 2 : barEnd);
+      hit('pad', t, pp.map(midiName), .65 + e * .25, len - .08);
+      const r = F.inRange(F.deg(dd)[0], 36);
+      if (e < .35) hit('bass', t, midiName(r), .7, len * .9);
+      else for (let k = 0; k < len / beat - 1e-6; k += 2) hit('bass', t + k * beat, midiName(k === 2 && e > .6 ? r + 7 : r), .8, beat * 1.6);
+    }
+    // keys arpeggio: quarter notes at medium energy, eighth notes at high energy
+    if (e >= .3) {
+      const step = e >= .6 ? beat / 2 : beat, pat = [0, 1, 2, 1, 0, 2, 1, 2];
+      for (let k = 0; T + k * step < Math.min(T + bar, fin) - 1e-6; k++) {
+        const t = T + k * step, tones = F.deg(F.degAt(t)).map(pc => F.inRange(pc, 60)).sort((a, b) => a - b);
+        hit('keys', t, midiName(tones[pat[k % pat.length]] + (k % 4 === 3 && e >= .6 ? 12 : 0)), (k % 4 ? .38 : .5) * (.8 + e * .3), step * 1.5);
+      }
+    }
+    // melody (lead) at high energy
+    if (e >= .55 && I.lead) {
+      if (b % 4 === 0 || !phraseRhythm) phraseRhythm = rhythms[Math.floor(R() * rhythms.length)];
+      const cadence = b % 4 === 3, rh = cadence ? [0, 2] : phraseRhythm;
+      rh.forEach((pos, i) => {
+        const t = T + pos * beat; if (t >= fin - beat * .5) return;
+        const tones = F.deg(F.degAt(t)).map(pc => F.inRange(pc, 72)), onBeat = pos % 1 === 0;
+        let m;
+        if (last == null || onBeat) { // on the beat, a chord note different from the previous one: the nearest, or sometimes the next
+          const ref = last ?? 76, cand = tones.flatMap(c => [c - 12, c, c + 12]).filter(c => c >= 67 && c <= 84 && c !== last).sort((a, b) => Math.abs(a - ref) - Math.abs(b - ref));
+          m = cand[R() < .35 ? 1 : 0] ?? cand[0];
+        }
+        else { const j = F.scaleNotes.indexOf(last); m = F.scaleNotes[clamp(j + (R() < .5 ? 1 : -1) * (R() < .7 ? 1 : 2), 0, F.scaleNotes.length - 1)]; }
+        m = clamp(m, 67, 84); last = m;
+        hit('lead', t, midiName(m), .75, cadence && i === 1 ? beat * 2 : beat);
+      });
+    } else last = null;
+    // soft pulse at very high energy
+    if (e >= .7 && I.perc) for (let k = 0; k < 8 && T + k * beat / 2 < fin - 1e-6; k++) hit('perc', T + k * beat / 2, 'C5', k % 2 ? .2 : .35, .05);
+  }
+  // ending: tonic in all layers, and lets the tail ring out
+  const tonic = F.deg(1), padF = tonic.map(pc => F.inRange(pc, 55)).sort((a, b) => a - b);
+  hit('pad', fin, padF.map(midiName), .85, F.tail - .3);
+  hit('bass', fin, midiName(F.inRange(tonic[0], 36)), .9, F.tail);
+  hit('keys', fin, tonic.map(pc => midiName(F.inRange(pc, 60))).concat(midiName(F.inRange(tonic[0], 72))), .5, F.tail);
+  hit('lead', fin + beat * .5, midiName(F.inRange(tonic[0], 72)), .6, F.tail);
+  return ev;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  YOUR FILM — only this section changes from one video to another.
+//  Define here: puppets (functions that draw with g, baked with sprite()),
+//  MUSIC + baseScore(), and the shots S1..Sn with the interface
+//  { name, dur, cam, build, reset, step, snap, draw, score, poke }, each one with SHOTS.push(...).
+//  t0/t1 are computed automatically from dur, in SHOTS order.
+//  Full contract in the skill's ENGINE.md; worked examples in styles/examples/.
+// ═══════════════════════════════════════════════════════════════════════════
+// KIT-START — paste styles/<style>.js here if the style comes with a kit
+// KIT-END
+const SHOTS = [];
+function baseScore() { return []; }
+// VOICE-START — narration clips, written by embed-voice.cjs: { t: seconds, v: gain, b64: base64 of a wav/mp3 }
+const VOICE = [];
+// VOICE-END
+
+// ═══ ENGINE · clock, stop-motion stepping, camera, post, sound schedule, interaction ═══════════════
+const Q = new URLSearchParams(location.search);
+const cv = document.getElementById('film'), ctx = cv.getContext('2d', { alpha: false });
+const film = { f: -1, shotIdx: -1, shot: null, playing: false, smooth: Q.get('smooth') === '1', clock: 0, audio: false, muted: false, seeking: false, ready: false, started: false };
+
+// motion-control camera with depth: p=1 is the puppet plane, p<1 sits further back
+function setCam(c, cam, p = 1) {
+  const z = 1 + (cam.z - 1) * p, cx = W / 2 + (cam.x - W / 2) * p, cy = H / 2 + (cam.y - H / 2) * p;
+  const tx = W / 2 - cx * z, ty = H / 2 - cy * z;
+  if (FORMAT.pixel) c.setTransform(z, 0, 0, z, Math.round(tx), Math.round(ty)); else c.setTransform(z, 0, 0, z, tx, ty);
+}
+const toWorld = (sx, sy) => { const c = film.cam || { x: W / 2, y: H / 2, z: 1 }; return [(sx - W / 2) / c.z + c.x, (sy - H / 2) / c.z + c.y]; };
+
+// the viewer's breath: transient wind blobs that every simulation samples
+let GUSTS = [];
+function gustAt(x, y) {
+  let vx = 0, vy = 0;
+  for (const g of GUSTS) { const dx = x - g.x, dy = y - g.y, d2 = dx * dx + dy * dy, r2 = g.r * g.r; if (d2 > r2 * 6) continue; const f = Math.exp(-d2 / r2) * g.s, d = Math.sqrt(d2) || 1; vx += (g.vx + dx / d * g.push) * f; vy += (g.vy + dy / d * g.push) * f; }
+  return [vx, vy];
+}
+const stepGusts = () => { for (const g of GUSTS) g.s *= .9; GUSTS = GUSTS.filter(g => g.s > .02); };
+
+// physics-born sounds (landings, petals): baked for the offline mix, played live otherwise
+let BAKING = false, EMITTED = [];
+function emit(e) { const t = film.f / FPS; if (BAKING) { EMITTED.push({ ...e, t }); return; } if (film.audio && film.playing && !film.seeking) liveSfx(e); }
+function sfx(e) { if (film.audio) liveSfx(e); }
+
+// ── simulation: each shot resets to its own frame 0, then steps at a fixed 60 Hz ──
+const shotAt = f => { let i = 0; for (let k = 0; k < SHOTS.length; k++) if (f >= Math.round(SHOTS[k].t0 * FPS)) i = k; return i; };
+function simTo(f) {
+  const i = shotAt(f), s = SHOTS[i], f0 = Math.round(s.t0 * FPS);
+  if (i !== film.shotIdx || f < film.f) { film.shotIdx = i; film.shot = s; s.reset(); film.f = f0; GUSTS = []; }
+  while (film.f < f) { film.f++; const sf = film.f - f0; s.step(1 / FPS, sf / FPS, sf); stepGusts(); if (film.smooth || sf % EXPO === 0) s.snap(); }
+}
+// post: exposure flicker (each stop-motion frame is its own photograph), grain, lens falloff
+const VIGN = (() => { const c = mk(W, H), g = g2(c); g.save(); g.translate(W / 2, H / 2); g.scale(1, H / W); const rg = g.createRadialGradient(0, 0, W * .22, 0, 0, W * .72); rg.addColorStop(0, 'rgba(4,14,16,0)'); rg.addColorStop(.7, 'rgba(4,14,16,.18)'); rg.addColorStop(1, 'rgba(4,14,16,.55)'); g.fillStyle = rg; g.fillRect(-W, -W, W * 2, W * 2); g.restore(); return c; })();
+function render() {
+  const f = film.f, s = film.shot, f0 = Math.round(s.t0 * FPS), sf = f - f0, st = sf / FPS;
+  const e = film.smooth ? 0 : Math.floor(f / EXPO), sq = film.smooth ? st : Math.floor(sf / EXPO) * EXPO / FPS;
+  const cam = film.cam = s.cam(st); s._sq = sq;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = FORMAT.post.bg; ctx.fillRect(0, 0, W, H);
+  if (FORMAT.pixel) ctx.imageSmoothingEnabled = false;
+  s.draw(ctx, st, sq, e, cam);
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.shadowColor = 'transparent';
+  if (!film.smooth && FORMAT.post.flicker) { const fl = (hash(e, 77) - .5) * FORMAT.post.flicker; ctx.fillStyle = fl > 0 ? `rgba(255,244,226,${fl * .55})` : `rgba(4,14,16,${-fl * .7})`; ctx.fillRect(0, 0, W, H); }
+  const ox = (hash(e + 1, 5) * 384) | 0, oy = (hash(e + 1, 6) * 384) | 0;
+  if (FORMAT.post.grain) { ctx.save(); ctx.translate(-ox, -oy); ctx.globalAlpha = FORMAT.post.grain; ctx.fillStyle = PAT.grain; ctx.fillRect(ox, oy, W, H); ctx.restore(); }
+  if (FORMAT.post.vignette) { ctx.globalAlpha = FORMAT.post.vignette; ctx.drawImage(VIGN, 0, 0); ctx.globalAlpha = 1; }
+}
+
+// ── sound schedule on the audio clock (the picture follows the sound when it's on) ──
+let AC = null, SND = null, audioT0 = 0, cursor = 0, SCORE = [];
+const buildScore = () => { SCORE = baseScore().concat(...SHOTS.map(s => s.score()), VOICE.filter(c => c.buf).map(c => ({ t: c.t, k: 'voice', buf: c.buf, v: c.v ?? 1, dur: c.buf.duration }))).sort((a, b) => a.t - b.t); };
+function liveSfx(e) { if (!SND || film.muted) return; SND.play({ ...e, t: film.f / FPS }, AC.currentTime + .01); }
+function cutSession() { if (!SND || !SND.sess) return; const s = SND.sess; s.dry.gain.setTargetAtTime(0, AC.currentTime, .02); s.wet.gain.setTargetAtTime(0, AC.currentTime, .02); setTimeout(() => { s.dry.disconnect(); s.wet.disconnect(); }, 500); SND.sess = null; }
+function audioFrom(tf) {
+  if (!AC) { AC = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' }); SND = new Sound(AC); }
+  if (AC.state !== 'running') AC.resume();
+  cutSession();
+  const dry = AC.createGain(), wet = AC.createGain(); dry.connect(SND.master); wet.connect(SND.verb); SND.sess = { dry, wet }; SND.bus = dry; SND.vbus = wet;
+  SND.master.gain.value = film.muted ? 0 : .92;
+  audioT0 = AC.currentTime + .06 - tf;
+  cursor = 0; while (cursor < SCORE.length && SCORE[cursor].t < tf - 1e-6) cursor++;
+  for (const e of SCORE) if ((e.k === 'bed' || e.k === 'voice') && e.t < tf && e.t + e.dur > tf + .05) SND.play(e, AC.currentTime + .06, tf - e.t);
+}
+function audioPump() {
+  if (!film.audio || !film.playing || !AC) return;
+  const horizon = AC.currentTime + .25;
+  while (cursor < SCORE.length && SCORE[cursor].t + audioT0 < horizon) { const e = SCORE[cursor++]; if (!film.muted) SND.play(e, Math.max(AC.currentTime, e.t + audioT0)); }
+}
+async function renderWav() { // offline mix of exactly what the film does (for the video file)
+  BAKING = true; EMITTED = []; film.shotIdx = -1; for (let f = 0; f < NF; f++) simTo(f); BAKING = false; film.shotIdx = -1;
+  const sr = 48000, O = new OfflineAudioContext(2, Math.ceil(sr * DUR), sr), S = new Sound(O);
+  for (const e of SCORE.concat(EMITTED).sort((a, b) => a.t - b.t)) S.play(e, e.t);
+  S.master.gain.setValueAtTime(.92, Math.max(0, DUR - .45)); S.master.gain.linearRampToValueAtTime(0, DUR - .005);
+  const buf = await O.startRendering(), L = buf.getChannelData(0), Rr = buf.getChannelData(1), n = L.length, ab = new ArrayBuffer(44 + n * 4), dv = new DataView(ab);
+  const ws = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+  ws(0, 'RIFF'); dv.setUint32(4, 36 + n * 4, true); ws(8, 'WAVE'); ws(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 2, true); dv.setUint32(24, sr, true); dv.setUint32(28, sr * 4, true); dv.setUint16(32, 4, true); dv.setUint16(34, 16, true); ws(36, 'data'); dv.setUint32(40, n * 4, true);
+  for (let i = 0; i < n; i++) { dv.setInt16(44 + i * 4, clamp(L[i], -1, 1) * 32767, true); dv.setInt16(46 + i * 4, clamp(Rr[i], -1, 1) * 32767, true); }
+  const u8 = new Uint8Array(ab); let s = ''; for (let i = 0; i < u8.length; i += 32768) s += String.fromCharCode.apply(null, u8.subarray(i, i + 32768));
+  return btoa(s);
+}
+
+// ── transport ──
+function seek(f, keepPlaying = film.playing) {
+  f = clamp(Math.round(f), 0, NF - 1); film.seeking = true; simTo(f); film.seeking = false; render();
+  film.clock = f / FPS; if (film.audio && keepPlaying) audioFrom(film.clock);
+  ui();
+}
+function play(on = !film.playing) {
+  film.playing = on;
+  if (on) { if (film.f >= NF - 1) seek(0, false); film.clock = film.f / FPS; if (film.audio) audioFrom(film.clock); }
+  else if (film.audio) cutSession();
+  ui();
+}
+let lastNow = 0;
+function tick(now) {
+  requestAnimationFrame(tick);
+  const dt = Math.min(.1, (now - lastNow) / 1000); lastNow = now;
+  if (!film.ready || !film.playing) return;
+  let t = film.audio && AC && AC.state === 'running' ? AC.currentTime - audioT0 : film.clock + dt;
+  if (t >= DUR) { t -= DUR; if (film.audio) { audioT0 += DUR; cursor = 0; } }
+  film.clock = t;
+  // frame pacing with hysteresis: one film frame per 60 Hz refresh, every other one at 120 Hz; a clock that sits on a
+  // frame boundary can no longer make frames stutter (repeat, then skip). Big jumps (loop, seek) resync outright.
+  const want = t * FPS, d = want - film.f;
+  let f = d < -1 || d > 6 ? Math.floor(want) : d >= .6 ? film.f + Math.max(1, Math.floor(d + .4)) : film.f;
+  f = clamp(f, 0, NF - 1);
+  if (f !== film.f) { if (f < film.f) { film.seeking = true; simTo(f); film.seeking = false; } else simTo(f); render(); }
+  audioPump(); ui();
+}
+
+// ── UI ──
+const $ = id => document.getElementById(id);
+const tcFmt = t => `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(Math.floor(t % 60)).padStart(2, '0')}.${String(Math.floor((t % 1) * 100)).padStart(2, '0')}`;
+// Toolbar icons: 24×24 strokes in the text color; the name goes in aria-label and title.
+const ICONOS = {
+  play: '<path d="M7 4.5v15l12-7.5z" fill="currentColor"/>',
+  pausa: '<path d="M7 4h3.5v16H7zM13.5 4H17v16h-3.5z" fill="currentColor"/>',
+  reiniciar: '<path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4.5h4.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+  sonido: '<path d="M4 9.5h4l5-4.5v14l-5-4.5H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  mudo: '<path d="M4 9.5h4l5-4.5v14l-5-4.5H4z" fill="currentColor"/><path d="M16.5 9.5l5 5M21.5 9.5l-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  poses: '<rect x="3" y="5" width="18" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9 5v14M15 5v14" stroke="currentColor" stroke-width="2"/>',
+  fluido: '<path d="M3 12c3-6 6-6 9 0s6 6 9 0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+  ampliar: '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+  salir: '<path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+};
+function icono(id, nombre, etiqueta) {
+  const b = $(id);
+  if (b.dataset.icono !== nombre) { b.dataset.icono = nombre; b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONOS[nombre]}</svg>`; }
+  b.setAttribute('aria-label', etiqueta); b.title = etiqueta;
+}
+function ui() {
+  icono('rs', 'reiniciar', 'Restart');
+  const t = Math.max(0, film.f) / FPS;
+  $('tc').textContent = `${tcFmt(t)} / ${tcFmt(DUR)}`; $('head').style.left = `${(t / DUR) * 100}%`;
+  icono('pp', film.playing ? 'pausa' : 'play', film.playing ? 'Pause' : 'Play'); $('pp').setAttribute('aria-pressed', film.playing);
+  icono('sm', film.smooth ? 'fluido' : 'poses', film.smooth ? `Smooth · ${FPS} poses/s` : `Stop-motion · ${+(FPS / EXPO).toFixed(1)} poses/s`);
+  icono('snd', !film.audio || film.muted ? 'mudo' : 'sonido', !film.audio ? 'Sound off' : film.muted ? 'Muted' : 'Sound on');
+  icono('fs', document.fullscreenElement ? 'salir' : 'ampliar', document.fullscreenElement ? 'Exit full screen' : 'Full screen');
+  document.querySelectorAll('#track .seg').forEach((el, i) => el.classList.toggle('on', i === film.shotIdx));
+}
+function startFilm() { $('start').hidden = true; film.audio = true; film.started = true; seek(0, false); play(true); }
+$('start').addEventListener('click', e => { e.stopPropagation(); startFilm(); });
+$('pp').addEventListener('click', () => { if (!film.started) return startFilm(); play(); });
+$('rs').addEventListener('click', () => { if (!film.started) return startFilm(); seek(0); if (!film.playing) play(true); });
+$('sm').addEventListener('click', () => { film.smooth = !film.smooth; seek(film.f); });
+$('snd').addEventListener('click', () => { if (!film.audio) { film.audio = true; film.muted = false; if (film.playing) audioFrom(film.clock); } else { film.muted = !film.muted; if (SND) SND.master.gain.setTargetAtTime(film.muted ? 0 : .92, AC.currentTime, .03); } ui(); });
+// Embedded or full screen, the bar floats over the image: it appears when the mouse moves or a key is pressed
+// and hides after 2 s without activity, unless the mouse is over it.
+(() => {
+  const raiz = document.documentElement; let espera = 0, sobreBarra = false;
+  const mostrar = () => { raiz.classList.add('controles'); clearTimeout(espera); espera = setTimeout(() => { if (!sobreBarra) raiz.classList.remove('controles'); }, 2000); };
+  for (const ev of ['pointermove', 'pointerdown', 'keydown']) addEventListener(ev, mostrar);
+  $('bar').addEventListener('pointerenter', () => { sobreBarra = true; });
+  $('bar').addEventListener('pointerleave', () => { sobreBarra = false; mostrar(); });
+})();
+// Full screen for the whole player, so the controls stay at hand (they appear when the mouse moves).
+$('fs').addEventListener('click', () => { (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.())?.catch?.(() => {}); });
+document.addEventListener('fullscreenchange', () => ui());
+// scrubber (drag to scrub; paused scrubbing lands on exposures, like an animator's frame flip)
+(() => {
+  const tr = $('track'); let drag = false, was = false;
+  const at = ev => { const r = tr.getBoundingClientRect(); return clamp((ev.clientX - r.left) / r.width, 0, 1) * (NF - 1); };
+  tr.addEventListener('pointerdown', ev => { if (!film.started) { $('start').hidden = true; film.started = true; } drag = true; was = film.playing; film.playing = false; if (film.audio) cutSession(); tr.setPointerCapture(ev.pointerId); seek(at(ev), false); });
+  tr.addEventListener('pointermove', ev => { if (drag) seek(at(ev), false); });
+  tr.addEventListener('pointerup', () => { if (!drag) return; drag = false; if (was) play(true); });
+})();
+// poking the world
+(() => {
+  let down = false, lx = 0, ly = 0, lt = 0;
+  const pos = ev => { const r = cv.getBoundingClientRect(); return [(ev.clientX - r.left) / r.width * W, (ev.clientY - r.top) / r.height * H]; };
+  cv.addEventListener('pointerdown', ev => {
+    if (!film.started) return startFilm();
+    const [sx, sy] = pos(ev), [x, y] = toWorld(sx, sy); down = true; lx = x; ly = y; lt = performance.now(); cv.setPointerCapture(ev.pointerId);
+    const hit = film.shot && film.shot.poke(x, y);
+    GUSTS.push({ x, y, vx: 0, vy: -60, r: hit ? 170 : 260, s: 1, push: hit ? 380 : 720 });
+    if (!hit) sfx({ k: 'whoosh', dur: .45, p0: (sx / W - .5) * 1.4, p1: (sx / W - .5) * 1.6, f0: 380, f1: 1600, v: .55 });
+    if (!film.playing && film.started) play(true);
+  });
+  cv.addEventListener('pointermove', ev => {
+    const [sx, sy] = pos(ev), [x, y] = toWorld(sx, sy), now = performance.now(), dt = Math.max(8, now - lt) / 1000;
+    const vx = clamp((x - lx) / dt, -2600, 2600), vy = clamp((y - ly) / dt, -2600, 2600), sp = Math.hypot(vx, vy);
+    if (film.playing && (down || sp > 900)) GUSTS.push({ x, y, vx: vx * (down ? .9 : .35), vy: vy * (down ? .9 : .35), r: down ? 230 : 160, s: down ? 1 : .5, push: 0 });
+    if (down && sp > 1400 && now - (cv._w || 0) > 260) { cv._w = now; sfx({ k: 'whoosh', dur: .5, p0: (sx / W - .5) * 1.4 - .3 * Math.sign(vx), p1: (sx / W - .5) * 1.4 + .3 * Math.sign(vx), f0: 300, f1: 1300, v: .5 }); }
+    lx = x; ly = y; lt = now;
+  });
+  const up = () => { down = false; }; cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+})();
+addEventListener('keydown', ev => {
+  if (ev.target.closest && ev.target.closest('button') && (ev.key === ' ' || ev.key === 'Enter')) return;
+  const k = ev.key;
+  if (k === ' ') { ev.preventDefault(); if (!film.started) return startFilm(); play(); }
+  else if (k === 'ArrowRight' || k === 'ArrowLeft') { ev.preventDefault(); if (!film.started) { $('start').hidden = true; film.started = true; } play(false); const step = ev.shiftKey ? 1 : film.smooth ? 1 : EXPO, base = film.smooth || ev.shiftKey ? film.f : Math.round(film.f / EXPO) * EXPO; seek(base + (k === 'ArrowRight' ? step : -step), false); }
+  else if (k === 'r' || k === 'R' || k === 'Home') { if (!film.started) return startFilm(); seek(0); if (!film.playing) play(true); }
+  else if (k === 's' || k === 'S') $('sm').click();
+  else if (k === 'm' || k === 'M') $('snd').click();
+  else if (k === 'f' || k === 'F') $('fs').click();
+  else if (k >= '1' && k <= '9' && +k <= SHOTS.length) { if (!film.started) { $('start').hidden = true; film.started = true; film.audio = true; } seek(Math.round(SHOTS[+k - 1].t0 * FPS)); if (!film.playing) play(true); }
+});
+
+// ── boot ──
+(async () => {
+  let acc = 0; for (const s of SHOTS) { if (s.t0 == null) s.t0 = acc; if (s.t1 == null) s.t1 = s.t0 + s.dur; acc = s.t1; }
+  DUR = acc; NF = Math.round(DUR * FPS);
+  cv.width = W; cv.height = H; document.documentElement.style.setProperty('--ar', W / H);
+  if (FORMAT.pixel) cv.style.imageRendering = 'pixelated';
+  // With a light background style, the start screen lightens and the title turns to ink.
+  { const h = FORMAT.post.bg.replace('#', ''), [r, g, b] = [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); if (.2126 * r + .7152 * g + .0722 * b > 128) document.documentElement.classList.add('fondo-claro'); }
+  const tr = $('track'); tr.style.gridTemplateColumns = SHOTS.map(s => `${s.t1 - s.t0}fr`).join(' ');
+  SHOTS.forEach(s => { const el = document.createElement('span'); el.className = 'seg'; el.textContent = s.name; el.title = s.name; tr.insertBefore(el, $('head')); });
+  // A shot's name is written only if it fits whole; otherwise it stays in the title (on mouse hover).
+  new ResizeObserver(() => tr.querySelectorAll('.seg').forEach(el => { el.classList.remove('estrecho'); el.classList.toggle('estrecho', el.scrollWidth > el.clientWidth + 1); })).observe(tr);
+  $('spec').textContent = `${+DUR.toFixed(1)} s · with sound`;
+  if (EXPO === 1) $('sm').hidden = true;
+  await document.fonts.ready;
+  if (typeof KIT_READY !== 'undefined') await KIT_READY; // a kit that loads something async (3b1b: MathJax) awaits it here, before build()
+  if (VOICE.length) { const O = new OfflineAudioContext(1, 1, 48000); for (const c of VOICE) { const b = atob(c.b64), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); c.buf = await O.decodeAudioData(u.buffer); } }
+  for (const s of SHOTS) s.build();
+  buildScore();
+  const t = Q.get('t'), fr = Q.get('frame');
+  if (Q.get('ui') === '0') document.documentElement.classList.add('bare');
+  seek(fr != null ? +fr : t != null ? +t * FPS : FORMAT.poster != null ? Math.round(FORMAT.poster * FPS) : 0, false);
+  film.ready = true; window.__READY = true;
+  if (t != null || fr != null || Q.get('ui') === '0') { $('start').hidden = true; film.started = true; }
+  requestAnimationFrame(tick);
+})();
+// test hooks (headless capture + review)
+window.__film = {
+  seek: f => { film.seeking = true; simTo(f); film.seeking = false; render(); return film.f; },
+  time: () => { const t0 = performance.now(); render(); ctx.getImageData(0, 0, 1, 1); return performance.now() - t0; }, // waits for the GPU: measures the whole frame
+  wav: () => renderWav(), score: () => SCORE, info: () => ({ f: film.f, shot: film.shot && film.shot.name, smooth: film.smooth }),
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{number}} {{Subtopic}}</title>
+  <meta name="course" content="{{Course}}">
+  <meta name="key" content="{{unique key, e.g. rust/1.2}}">
+  <meta name="status" content="new">
+  <meta name="review_on" content="">
+  <link rel="stylesheet" href="{{path to kit}}/kit.css">
+  <script src="{{path to kit}}/kit.js"></script>
+</head>
+<body>
+<main>
+  <p class="cabecera"><a href="{{path to index}}">{{Course}}</a> · {{number}}</p>
+  <h1>{{Subtopic}}</h1>
+
+  <div class="metas">
+    <strong>By the end you will be able to:</strong>
+    <ul>
+      <li>{{subtopic goal}}</li>
+    </ul>
+  </div>
+
+  <h2>{{Intuition}}</h2>
+  <p>{{The why before the procedure.}}</p>
+
+  <!-- Optional, only if they add value:
+  <div class="aviso error-comun"><p><strong>Common mistake:</strong> …</p></div>
+  <pre class="mermaid">flowchart LR …</pre>
+  $$ … $$
+  -->
+
+  <h2>Sources</h2>
+  <ul>
+    <li><a href="{{path to Resources/…}}">{{source}}</a></li>
+  </ul>
+
+  <section class="repaso" aria-labelledby="repaso-t">
+    <h2 id="repaso-t">Review questions</h2>
+    <div class="q"><p>{{Open question that can't be answered by copying a line.}}</p></div>
+    <div class="q">
+      <p>{{Multiple-choice question.}}</p>
+      <ol class="ops">
+        <li data-correcta>{{The correct one.}}</li>
+        <li data-por="{{Why this one is wrong.}}">{{Distractor.}}</li>
+      </ol>
+      <div class="explica"><p>{{Explanation shown after choosing.}}</p></div>
+    </div>
+  </section>
+</main>
+</body>
+</html>
