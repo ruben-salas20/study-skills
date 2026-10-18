@@ -15,7 +15,7 @@ Checks whether the learner reached the goal of a subtopic. It is the only skill 
 
 ## Steps
 
-1. **Prepare the test.** Read the subtopic's page, its **goal** in `phases/`, and what the phase's **Assessment** asks of it. Prepare 3 to 5 questions that differ from the page's review questions, and an exercise that applies the goal. A course from an institution has no `phases/` or `PLAN.md`: the goal comes from the page and from what the teacher said will be covered. If the course has an interactive assessment component, use it. Write the correct answer for each item for yourself before asking. Done when each item has its key.
+1. **Prepare the test.** Read the subtopic's page, its **goal** in `phases/`, and what the phase's **Assessment** asks of it. Prepare 3 to 5 questions that differ from the page's review questions, if it has any, and an exercise that applies the goal. A course from an institution has no `phases/` or `PLAN.md`: the goal comes from the page and from what the teacher said will be covered. If the course has an interactive assessment component, use it. Write the correct answer for each item for yourself before asking. Done when each item has its key.
 
 2. **Ask one at a time.** During the test, only ask and listen: hints come from `/revise`. Done when the learner has answered everything.
 

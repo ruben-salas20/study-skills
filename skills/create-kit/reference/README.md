@@ -34,6 +34,6 @@ In the `<head>`, after the `<meta>` tags:
 - **Formulas:** `$…$` inline and `$$…$$` in display mode. The kit loads KaTeX only if the page has a `$`.
 - **Diagrams:** `<pre class="mermaid">…</pre>`. The kit loads Mermaid only if there is one.
 - **Callouts:** `<div class="aviso">`; for common mistakes, `<div class="aviso error-comun">`.
-- **Review:** `<section class="repaso">` with one `<div class="q">` per question. Open: only the question `<p>`; the kit adds the answer box. Multiple choice: an `<ol class="ops">` with one `<li data-correcta>` and each distractor with `data-por="why not"`; the kit shuffles, checks the answer when chosen, and shows the `.explica`. At the end, add "Send review", which fires a `kit:review` event on `window` with the answers, for any app hosting the page to listen to, and also leaves them in the console.
+- **Review (optional):** only if the questions are part of the explanation; assessment belongs to `/assess`. `<section class="repaso">` with one `<div class="q">` per question. Open: only the question `<p>`; the kit adds the answer box. Multiple choice: an `<ol class="ops">` with one `<li data-correcta>` and each distractor with `data-por="why not"`; the kit shuffles, checks the answer when chosen, and shows the `.explica`. At the end, add "Send review", which fires a `kit:review` event on `window` with the answers, for any app hosting the page to listen to, and also leaves them in the console.
 
 `window.Kit` provides `Kit.meta` (the `<meta>` tags it read) and `Kit.enviar(datos)`.

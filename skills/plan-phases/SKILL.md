@@ -17,7 +17,7 @@ Writes one file per phase in `phases/` and, once `/study-plan` has created the t
 
 1. **Read the course.** `PLAN.md`, `MISSION.md`, `BASELINE.md`, the `NOTES.md` files, the files in `phases/` and the `/assess` log, if they exist. Done when you know which mode you're in and, in Review mode, the reason.
 
-2. **Write or propose the detail.** Each phase goes in `phases/<n> — <Topic>.md`:
+2. **Write or propose the detail.** Each phase goes in `phases/<n>-<topic>.md`, with the topic in lowercase, without accents and with hyphens instead of spaces (`phases/1-the-memory-python-hides.md`), so it's easy to link:
 
    ```markdown
    # Phase <n>. <Topic>

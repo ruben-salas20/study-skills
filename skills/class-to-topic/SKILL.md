@@ -27,7 +27,7 @@ For courses at an institution. The source is the class: what the teacher said ou
    - Recount what the class said and cite it. What you add from another source is marked as added. Each inaccuracy goes in a notice, next to what the teacher said: the learner decides.
    - Visual resources follow `../explain/resources.md`.
    - Link to what already has a page instead of repeating it.
-   - End with 2 or 3 review questions that can't be answered by copying a line.
+   - Review questions only if they are part of the explanation: predicting something and checking it in an interactive resource, or a multiple-choice question whose wrong options are typical mistakes, each with its reason. Assessment belongs to `/assess`; don't close the page with questions out of habit.
    - Metadata: `status: new` and `review_on` empty.
    - Link them from the subject's index.
 
