@@ -10,9 +10,9 @@ For courses at an institution. The source is the class: what the teacher said ou
 
 ## Steps
 
-1. **Get your bearings.** The subject is, in this order: the one in the folder where the session was opened (the one with `MISSION.md`, or a higher one); the one the argument names; the only institution's subject in `<ROOT>`. If there are several and nothing decides, list them and ask. Read `<ROOT>/AGENTS.md`, `MISSION.md` and the subject's `NOTES.md` files. If there are pages for this subject with `status: new`, a previous session was left half-done: offer to resume them in step 6. The material is the one the argument indicates; if there is none, list the files in the term's `_Inbox/` for this subject and ask. Done when there is material or pages to resume.
+1. **Get your bearings.** The subject is, in this order: the one in the folder where the session was opened (the one with `MISSION.md`, or a higher one); the one the argument names; the only institution's subject in `<ROOT>`. If there are several and nothing decides, list them and ask. Read `<ROOT>/AGENTS.md`, `MISSION.md` and the subject's `NOTES.md` files. If there are pages for this subject with `status: new`, a previous session was left half-done: offer to resume them in step 6 (**Study and assess each page**). The material is the one the argument indicates; if there is none, list the files in the term's `_Inbox/` for this subject and ask. Done when there is material or pages to resume.
 
-2. **Offer the overdue reviews** with step 2 of `../study/SKILL.md`. Done when there are none or the learner has chosen.
+2. **Offer the overdue reviews** with step 2 (**Offer overdue reviews**) of `../study/SKILL.md`. Done when there are none or the learner has chosen.
 
 3. **Extract the concepts.** Read the whole material and list the concepts the class teaches. For each one, search `Topics/` for whether it already has a page: if it does, it gets expanded; if not, it gets created. Also collect:
    - **obvious transcription errors**, with their corrections;
@@ -33,6 +33,6 @@ For courses at an institution. The source is the class: what the teacher said ou
 
    Done when each confirmed concept has its page, linked from the index.
 
-6. **Study and assess each page** with steps 5 and 6 of `../study-phase/SKILL.md`. Done when each page is assessed or the session closes.
+6. **Study and assess each page** with steps 5 (**Study the page with the learner**) and 6 (**Assess**) of `../study-phase/SKILL.md`. Done when each page is assessed or the session closes.
 
 7. **Close the session.** If pages with `status: new` remain and the session is already long, finish and say they resume with `/class-to-topic` in a new session: opened in the course folder (say its path) or with the course as argument, `/class-to-topic <course>`.

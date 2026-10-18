@@ -28,7 +28,7 @@ New sessions read everything from the course files: `MISSION.md`, `NOTES.md`, `B
 
 ## Steps
 
-1. **Choose the mode.** With a question as the argument, go to step 3. Without one, go to step 2.
+1. **Choose the mode.** With a question as the argument, go to step 3 (**Answer the question**). Without one, go to step 2 (**Recommend the next step**).
 
 2. **Recommend the next step.** Walk through `<ROOT>`: each folder with `MISSION.md` is a course. If there is none, recommend `/study`. If there are some, look in this order and recommend the first thing you find:
    1. pages with `review_on` earlier than today → `/study`, which offers them in scheduled review mode;

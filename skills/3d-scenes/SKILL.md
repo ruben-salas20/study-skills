@@ -24,7 +24,7 @@ A **scene** is a single `.html` file that opens with a double click and is embed
    - The template's names (`escena`, `camara`, `render`, `estado`, `t`…) are not redeclared: the scene fails at startup.
    - `linewidth` is ignored: a thick line is a tube.
 
-   Done when each moving piece corresponds to something from step 1 and each moment is an option in the main group.
+   Done when each moving piece corresponds to something from step 1 (**Choose the object and the question**) and each moment is an option in the main group.
 
 4. **Capture and look.** Always open the PNG: framing, labels overlapping and lighting are only seen by looking.
 

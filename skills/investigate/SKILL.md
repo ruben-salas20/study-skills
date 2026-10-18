@@ -15,7 +15,7 @@ Prepares the two inputs of the plan: what the sources say about the topic, and w
 2. **Launch the subagent** in the background. Give it the topic, the mission's limits, the course's `Resources/` path, and this instruction: "Read `<absolute path of research-sources.md>` and follow it." That file, together with this one, is the subagent's prompt. Done when it is running.
 
 3. **Check the baseline** while it researches.
-   - Ask what they already know about the topic and what surrounds it. If they say nothing, note it and go to step 4: you start from zero.
+   - Ask what they already know about the topic and what surrounds it. If they say nothing, note it and go to step 4 (**Write `BASELINE.md`**): you start from zero.
    - Check what they say they know with 3 to 5 short questions, from the most basic to the most advanced. What someone believes they know and what they know don't always match. Stop at the first question they clearly fail.
 
    Done when each thing they said they knew is **checked** or **to check**.

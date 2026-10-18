@@ -23,7 +23,7 @@ Three styles: **`3b1b`** (animated math in the style of 3Blue1Brown) if the topi
 
    In the chat, per shot, write: the part, what is seen, the **main action** with its anticipation, the action and the reaction in seconds (§ Animation), the exact label, the sounds that play and the duration. Done when each step covers a single concept, each one is understood from what was seen before, each shot has one main action with its three timings, and the person gives the go-ahead.
 
-3. **Prepare the file.** Read `ENGINE.md` in full. Copy `engine.html` as `<name>.html` next to the note (or wherever the project keeps its attachments: look at how it is organized and follow that pattern). Fill in `{{TITLE}}` and `{{SYNOPSIS}}`, the `FORMAT` block with the style's values and a `poster`, and paste `styles/<style>.js` between `KIT-START` and `KIT-END`. Done when the capture in step 5 runs without error.
+3. **Prepare the file.** Read `ENGINE.md` in full. Copy `engine.html` as `<name>.html` next to the note (or wherever the project keeps its attachments: look at how it is organized and follow that pattern). Fill in `{{TITLE}}` and `{{SYNOPSIS}}`, the `FORMAT` block with the style's values and a `poster`, and paste `styles/<style>.js` between `KIT-START` and `KIT-END`. Done when the capture in step 5 (**Build shot by shot**) runs without error.
 
 4. **Voice**, if requested: follow `voice.md`. Done when each clip is embedded and the `dur` of each shot covers its sentence.
 

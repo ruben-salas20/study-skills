@@ -10,7 +10,7 @@ Creates the place where an in-depth study will live. Each later skill creates it
 
 ## Steps
 
-1. **Get the brief.** It comes from `/study` in this conversation. If it isn't there, make it with step 3 of `../study/SKILL.md`. Done when you have all five fields confirmed.
+1. **Get the brief.** It comes from `/study` in this conversation. If it isn't there, make it with step 3 (**Write the brief**) of `../study/SKILL.md`. Done when you have all five fields confirmed.
 
 2. **Choose the location.** Look at how `<ROOT>` is organized and follow that pattern. If it's empty:
    - **Institution source:** `<ROOT>/Institution/<period>/<Subject>/`, with `_Inbox/` in the period folder for class material. Ask for the period if you don't know it.

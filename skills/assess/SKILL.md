@@ -34,9 +34,9 @@ Checks whether the learner reached the goal of a subtopic. It is the only skill 
    | Passes a scheduled review of 28 days or more | `mastered`, `[x]` | empty |
    | Fails a scheduled review | `in-progress`, `[~]` | in 1 day, after `/revise` |
 
-   A failure after studying does not change the status: follow step 6. Done when the page and `PLAN.md` say the same thing.
+   A failure after studying does not change the status: follow step 6 (**Follow the result**). Done when the page and `PLAN.md` say the same thing.
 
 6. **Follow the result.**
    - **Passes:** go back to the skill that called you.
-   - **Fails for the first time:** read `../revise/SKILL.md` and follow it; then repeat from step 1 with new questions.
+   - **Fails for the first time:** read `../revise/SKILL.md` and follow it; then repeat from step 1 (**Prepare the test**) with new questions.
    - **Fails after a `/revise`:** that is 2 misses in a row. After studying, go back to the skill that created the page (`/study-phase` or `/class-to-topic`) with what failed. In a scheduled review, set `review_on` to tomorrow and tell the learner that the page is redone with that skill in a new session.
