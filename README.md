@@ -11,7 +11,29 @@ It works for two kinds of study:
 
 ## Installation
 
-You need an agent that uses skills and can launch subagents, such as [Claude Code](https://claude.com/claude-code), and Node.js.
+You need an agent that uses skills and can launch subagents, such as [Claude Code](https://claude.com/claude-code).
+
+There are two ways to install. Use only one: with both, every skill shows up twice.
+
+### As a Claude Code plugin
+
+1. In Claude Code, type:
+
+   ```
+   /plugin install study --marketplace ruben-salas20/study-skills
+   ```
+
+   Before Claude Code 2.1.275, it takes two commands: `/plugin marketplace add ruben-salas20/study-skills` and then `/plugin install study@study-skills`.
+
+2. Type `/study:setup-study-skills`. It asks how you like to learn and where your study folder is, and writes your `AGENTS.md`.
+
+With the plugin, every command starts with `study:`: `/study` is `/study:study`. The rest of this README writes them without that prefix.
+
+**To update,** run `claude plugin update study@study-skills` in the terminal, reopen Claude Code, and type `/study:setup-study-skills`. You can also turn on auto-update in `/plugin`, under **Marketplaces**.
+
+### With npx, in Claude Code and other agents
+
+You need Node.js.
 
 1. Install all the skills:
 
@@ -23,9 +45,7 @@ You need an agent that uses skills and can launch subagents, such as [Claude Cod
 
 Install all the skills: they use each other, and if one is missing, the flow breaks. Only `/create-kit` is optional.
 
-`/3d-scenes` and `/videos` need **Chromium or Chrome** to check what they do. `/videos` also needs **Node, Playwright, and ffmpeg** only if you ask for an MP4 or a video with voice.
-
-**To update,** run `npx skills update -g` and then `/setup-study-skills`. The update overwrites the skills; setup reapplies the improvements you approved, saved in `IMPROVEMENTS.md`.
+**To update,** run `npx skills update -g` and then `/setup-study-skills`.
 
 `npx skills` sends anonymous usage statistics to [skills.sh](https://skills.sh). To turn them off, add `DO_NOT_TRACK=1` before the command.
 
@@ -35,6 +55,12 @@ Install all the skills: they use each other, and if one is missing, the flow bre
 Clone this repository and copy each folder in `skills/` to your agent's skills folder (in Claude Code, `~/.claude/skills/`). Then type `/setup-study-skills`.
 
 </details>
+
+### For both ways
+
+`/3d-scenes` and `/videos` need **Chromium or Chrome** to check what they do. `/videos` also needs **Node, Playwright, and ffmpeg** only if you ask for an MP4 or a video with voice.
+
+Each update overwrites the skills. Setup reapplies the improvements you approved, saved in `IMPROVEMENTS.md`.
 
 ## How to use it
 

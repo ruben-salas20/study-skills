@@ -1,0 +1,12 @@
+{
+  "name": "study-skills",
+  "description": "Skills for studying with an AI agent.",
+  "owner": { "name": "Rubén Salas" },
+  "plugins": [
+    {
+      "name": "study",
+      "source": "./",
+      "description": "Skills for studying with an AI agent: it researches, builds a plan, writes study pages, assesses you, and schedules reviews."
+    }
+  ]
+}

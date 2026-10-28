@@ -1,0 +1,8 @@
+{
+  "name": "study",
+  "description": "Skills for studying with an AI agent: it researches, builds a plan, writes study pages, assesses you, and schedules reviews.",
+  "author": { "name": "Rubén Salas" },
+  "homepage": "https://github.com/ruben-salas20/study-skills",
+  "repository": "https://github.com/ruben-salas20/study-skills",
+  "license": "MIT"
+}

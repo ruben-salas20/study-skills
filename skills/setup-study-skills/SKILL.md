@@ -6,11 +6,11 @@ disable-model-invocation: true
 
 # Study skills setup
 
-Runs after `npx skills add` or `npx skills update`. The skills are already installed; here they get adapted to you.
+Runs after you install or update the skills, with `npx skills` or as a Claude Code plugin. The skills are already installed; here they get adapted to you.
 
 ## Steps
 
-1. **Check the installation.** Look for the agent's skills folder (in Claude Code, `~/.claude/skills/`). The skills read each other (`../assess/SKILL.md`), so all the skills in the flow must be there; `create-kit` is optional. If any skill from the flow is missing, give the command to install all of them and stop. `3d-scenes` and `videos` need Chromium or Chrome; `videos`, also Node, Playwright and ffmpeg, only to export to MP4 or add voice. Check which ones are missing and give the command to install them on this system, without running it. Done when all are present and you know what is still missing.
+1. **Check the installation.** Look for the skills in the agent's skills folder (in Claude Code, `~/.claude/skills/`) and, in Claude Code, also in the plugin's folder (`~/.claude/plugins/cache/study-skills/study/`). If they are in both places, every skill shows up twice: explain how to remove one of the two installations. The skills read each other (`../assess/SKILL.md`), so all the skills in the flow must be there; `create-kit` is optional. If any skill from the flow is missing, give the command to install all of them and stop. `3d-scenes` and `videos` need Chromium or Chrome; `videos`, also Node, Playwright and ffmpeg, only to export to MP4 or add voice. Check which ones are missing and give the command to install them on this system, without running it. Done when all are present and you know what is still missing.
 
 2. **Ask about your preferences,** one at a time, with a default option for each:
    1. **Explanation style:** concise or detailed; formal or casual.
@@ -21,7 +21,7 @@ Runs after `npx skills add` or `npx skills update`. The skills are already insta
 
    If `<ROOT>/AGENTS.md` already exists, reuse what it says and ask only about what is missing or has changed. Done when there is an answer for all five.
 
-3. **Write `<ROOT>/AGENTS.md`.** The first line sets the path that the skills call `<ROOT>`: `` `<ROOT>` = <path from question 3> ``. After that: the teaching rules from questions 1 and 2, the page format (and the kit path, if there is one), and how to open a page in your viewer. The skills read it; don't repeat what they already say. If the file already existed, show the changes before writing. Done when you approve the text.
+3. **Write `<ROOT>/AGENTS.md`.** The first line sets the path that the skills call `<ROOT>`: `` `<ROOT>` = <path from question 3> ``. After that: the teaching rules from questions 1 and 2, the page format (and the kit path, if there is one), and how to open a page in your viewer. If the skills are installed as a plugin, add that commands start with `study:` (`/study:study`), so the skills give them that way. The skills read it; don't repeat what they already say. If the file already existed, show the changes before writing. Done when you approve the text.
 
 4. **Reapply the improvements.** If `<ROOT>/IMPROVEMENTS.md` exists, an update will have erased the approved changes that touched the skills. Reapply them and list the ones that no longer fit the new version. Done when each approved change is applied or listed.
 
