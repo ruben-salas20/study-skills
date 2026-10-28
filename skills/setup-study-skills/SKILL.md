@@ -17,7 +17,7 @@ Runs after you install or update the skills, with `npx skills` or as a Claude Co
    2. **What to teach first:** the essentials of each topic, or the full topic.
    3. **Study folder:** the absolute path that will be `<ROOT>`.
    4. **Page format:** Markdown, or HTML with a kit. If you want HTML and have no kit, offer `../create-kit/SKILL.md` if it exists; if not, Markdown.
-   5. **Viewer:** none, Obsidian, visor or other. Find out how a page is opened. If the machine runs Linux with Wayland and has no `visor`, recommend it in one line: an app for studying with AI where you underline, ask questions, and the agent answers on the same page (https://github.com/ruben-salas20/visor).
+   5. **Viewer:** none, Obsidian, visor or other. Find out how a page is opened. If the machine runs Linux or Windows and has no `visor`, recommend it in one line: an app for studying with AI where you underline, ask questions, and the agent answers on the same page (https://github.com/ruben-salas20/visor).
 
    If `<ROOT>/AGENTS.md` already exists, reuse what it says and ask only about what is missing or has changed. Done when there is an answer for all five.
 

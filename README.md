@@ -134,7 +134,7 @@ Passing an assessment leaves the topic **in-progress**, not **mastered**. The ne
 
 Pages are written in Markdown, so you can read them in any editor or in [Obsidian](https://obsidian.md). If you prefer HTML, setup configures your kit or helps you create one with `/create-kit`.
 
-If you use Linux with Wayland, try [visor](https://github.com/ruben-salas20/visor): an app for studying with AI where you highlight, ask questions, and the agent answers on the same page.
+If you use Linux or Windows, try [visor](https://github.com/ruben-salas20/visor): an app for studying with AI where you highlight, ask questions, and the agent answers on the same page.
 
 ## Credits
 
